@@ -1,255 +1,266 @@
 # Load simulated patient data from Python and process it
+# Outputs:
+#   glmnet_fit_all.RData: L2 regularized Cox models for 3 follow-up time periods
+#   log.txt: Log listing C-index on training, validation, and test sets and other information
+#   lambda_all.txt: Lists best value of lambda regularization parameter for each of 3 follow-up time periods
+#   calib_valid_all.svg: Calibration plots for validation set
+#   calib_test_all.svg: Calibration plots for test set
+#   test_surv_bins.svg: Actual survival for 4 bins of model-predicted survival
+#   coefs.csv: Final model coefficients for each predictor variable (for 0-6 months follow-up time) 
+#   roc.svg: ROC curves for 3 specified follow-up times
 #
-# Tested with R version 3.3.2
+# Tested with R version 3.4.3
 #
-# Author: Michael Gensheimer, 10/16/2017
+# Author: Michael Gensheimer, Stanford University, Mar. 8, 2018
 # michael.gensheimer@gmail.com
 
 rm(list=ls())
 graphics.off()
-library(Hmisc)
+options(digits=10)
+library(feather)
+library(rhdf5)
 library(survival)
 library(rms)
-library(ggplot2)
-library(MASS)
-library(lubridate)
-library(caret)
+library(Hmisc)
+library(glmnet)
 library(dplyr)
-library(psych)
-library(kappaSize)
+library(ggplot2)
 library(survminer)
-library(rhdf5)
-library(survIDINRI)
-library(Matrix)
-cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7") #color palette
+library(pROC)
 
-data_directory <- 'C:/Users/Michael/Documents/research/machine learning/prognosis/code/github/python_output/'
-visits=read.csv(paste(data_directory,'visits.csv',sep=''),stringsAsFactors=FALSE)
-visits_tfidf <- h5read(paste(data_directory,'text_labs.h5',sep=''),'text_labs',compoundAsDataFrame=FALSE)
-visits_tfidf <- visits_tfidf$table
-visits_tfidf <- t(visits_tfidf$values_block_0)
-visits$visit_date <- ymd(visits$visit_date)
-visits$dob <- ymd(visits$dob)
-visits$date_last_contact_or_death <- ymd(visits$date_last_contact_or_death)
-visits$age <- as.numeric(visits$visit_date-visits$dob)/365.25
-
-n_CoursesPallRtPreStudy <- 300 #number of palliative radiation courses prior to prospective study
-n_CoursesPallRtStudy <- 200    #number of radiationcourses on palliative radiation study
-
-temp_sample <- sample(x=nrow(visits),size=n_CoursesPallRtPreStudy,replace=FALSE) #assign palliative radiation courses to random visits
-choices <- which(visits$set==2)
-choices <- setdiff(choices,temp_sample)
-temp_sample2 <- sample(x=choices,size=n_CoursesPallRtStudy,replace=FALSE) #assign study radiation courses to random visits, but only test set visits
-visits$pallRtPreStudyIndex <- NA
-visits$pallRtStudyIndex <- NA
-visits[temp_sample,'pallRtPreStudyIndex'] <- seq(1,n_CoursesPallRtPreStudy)
-visits[temp_sample2,'pallRtStudyIndex'] <- seq(1,n_CoursesPallRtStudy)
-
-mysurv <- npsurv(Surv(visits$days_to_last_contact_or_death, visits$dead) ~ 1)
-survplot(fit=mysurv,xlim=c(0,365*5))
-title('Survival for visits in all patients')
-
-visits_train <- visits[visits$set==0 & visits$days_to_last_contact_or_death>0,]
-visits_tfidf_train <- data.frame(visits_tfidf[visits$set==0 & visits$days_to_last_contact_or_death>0,])
-visits_valid <- visits[visits$set==1 & visits$days_to_last_contact_or_death>0,]
-visits_tfidf_valid <- data.frame(visits_tfidf[visits$set==1 & visits$days_to_last_contact_or_death>0,])
-visits_test <- visits[visits$set==2 & visits$days_to_last_contact_or_death>0,]
-visits_tfidf_test <- data.frame(visits_tfidf[visits$set==2 & visits$days_to_last_contact_or_death>0,])
-
-myPsm <- psm(Surv(visits_train$days_to_last_contact_or_death, visits_train$dead) ~ .,data=visits_tfidf_train,dist='weibull')
-
-visits$progIndex <- predict(myPsm,type='lp',visits_tfidf)
-visits_train$progIndex <- predict(myPsm,type='lp',visits_tfidf_train)
-visits_valid$progIndex <- predict(myPsm,type='lp',visits_tfidf_valid)
-visits_test$progIndex <- predict(myPsm,type='lp',visits_tfidf_test)
-
-n_bins <- 5 #number of bins for calibration plot
-visits_train$progIndexBin <- with(visits_train, cut(progIndex, quantile(progIndex, probs = seq(0, 1, 1/n_bins)), include = TRUE))
-visits_valid$progIndexBin <- with(visits_valid, cut(progIndex, quantile(progIndex, probs = seq(0, 1, 1/n_bins)), include = TRUE))
-
-surv_times <- seq(0,365*5,365/16)
-pred_surv <- survest(myPsm,visits_tfidf_train,times=surv_times)
-mysurv <- npsurv(Surv(visits_train$days_to_last_contact_or_death, visits_train$dead) ~ visits_train$progIndexBin)
-survplot(fit=mysurv,conf="none",xlim=c(0,365*5),label.curves = FALSE)
-for (bin in seq(n_bins)) {
-  bin_surv <- pred_surv[visits_train$progIndexBin==levels(visits_train$progIndexBin)[bin],]
-  y <- colMeans(bin_surv)
-  smoothingSpline = smooth.spline(surv_times, y, spar=0.2)
-  lines(smoothingSpline, col='red', lwd=1)
+convert_timeperiod <- function(olddata,start_time,end_time) {
+  newdata <- olddata[olddata$days_to_last_contact_or_death>=start_time,]
+  newdata$dead[newdata$days_to_last_contact_or_death>end_time] <- FALSE
+  newdata$days_to_last_contact_or_death[newdata$days_to_last_contact_or_death>end_time] <- end_time
+  newdata$days_to_last_contact_or_death <- newdata$days_to_last_contact_or_death - start_time
+  return(newdata)
 }
-title('PSM training set calibration: red predicted, black actual')
 
-pred_surv <- survest(myPsm,visits_tfidf_valid,times=surv_times)
-mysurv <- npsurv(Surv(visits_valid$days_to_last_contact_or_death, visits_valid$dead) ~ visits_valid$progIndexBin)
-survplot(fit=mysurv,conf="none",xlim=c(0,365*5),label.curves = FALSE)
-for (bin in seq(n_bins)) {
-  bin_surv <- pred_surv[visits_valid$progIndexBin==levels(visits_valid$progIndexBin)[bin],]
-  y <- colMeans(bin_surv)
-  smoothingSpline = smooth.spline(surv_times, y, spar=0.2)
-  lines(smoothingSpline, col='red', lwd=1)
+data_dir = '/Users/michael/Documents/research/machine learning/prognosis/code/github/python_output/'
+output_dir = '/Users/michael/Documents/research/machine learning/prognosis/code/github/r_output/'
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+#Glmnet for prognosis study
+visits <- read_feather(paste(data_dir,'visits.feather',sep=''))
+text <- h5read(paste(data_dir,'text.h5',sep=''),'visits_tfidf_lasso',compoundAsDataFrame=FALSE)
+text <- t(text)
+labsvitals <- h5read(paste(data_dir,'labsvitals.h5',sep=''),'visits_labs',compoundAsDataFrame=FALSE)
+labsvitals <- t(labsvitals)
+diag_proc_medi <- h5read(paste(data_dir,'diag_proc_medi.h5',sep=''),'diag_proc_medi',compoundAsDataFrame=FALSE)
+diag_proc_medi <- t(diag_proc_medi)
+data <- cbind(text, labsvitals, diag_proc_medi)
+text <- 0
+labsvitals <- 0
+diag_proc_medi <- 0
+gc()
+
+data <- data[visits$days_to_last_contact_or_death>0,] #exclude visits with no f/u
+visits <- visits[visits$days_to_last_contact_or_death>0,]
+
+visits_train <- visits[visits$set==0,]
+visits_valid <- visits[visits$set==1,]
+visits_test <- visits[visits$set==2,]
+
+dataMean <- apply(data[visits$set==0,], 2, mean)
+dataStd <- apply(data[visits$set==0,], 2, sd)
+data <- (data - do.call('rbind',rep(list(dataMean),dim(data)[1]))) / do.call('rbind',rep(list(dataStd),dim(data)[1]))
+data[is.na(data)] <- 0 #if standard deviation 0, will have NAs
+
+start_time <- 365.25*c(0,0.5,2)
+end_time <- 365.25*c(0.5,2,5)
+cox_probs <- c(0,.16,.5,.84,1) # as suggested in https://bmcmedresmethodol.biomedcentral.com/articles/10.1186/1471-2288-13-33
+
+set.seed(0)
+n_timebins <- length(start_time)
+visits_train_timeperiod = NULL
+visits_valid_timeperiod = NULL
+visits_test_timeperiod = NULL
+for(i in seq(n_timebins)) {
+  visits_train_timeperiod[[i]] <- convert_timeperiod(visits_train,start_time[i],end_time[i])
+  visits_valid_timeperiod[[i]] <- convert_timeperiod(visits_valid,start_time[i],end_time[i])
+  visits_test_timeperiod[[i]] <- convert_timeperiod(visits_test,start_time[i],end_time[i])
 }
-title('PSM validation set calibration: red predicted, black actual')
 
-w<-rcorr.cens(visits_train$progIndex,Surv(visits_train$days_to_last_contact_or_death, visits_train$dead))
-C <- w['C Index']
-se <- w['S.D.']/2
-low <- C-1.96*se; hi <- C+1.96*se
-'Training set C-index (95% CI)'
-cbind(C, low, hi)
-w<-rcorr.cens(visits_valid$progIndex,Surv(visits_valid$days_to_last_contact_or_death, visits_valid$dead))
-C <- w['C Index']
-se <- w['S.D.']/2
-low <- C-1.96*se; hi <- C+1.96*se
-'Validation set C-index (95% CI)'
-cbind(C, low, hi)
-w<-rcorr.cens(visits_test$progIndex,Surv(visits_test$days_to_last_contact_or_death, visits_test$dead))
-C <- w['C Index']
-se <- w['S.D.']/2
-low <- C-1.96*se; hi <- C+1.96*se
-'Test set C-index (95% CI)'
-cbind(C, low, hi)
+model_name <- c('all') #include all features
+model_features <- list(seq(418)) #include all features
 
-visits_trainvalid_PallRtPreStudy <- visits[(visits$set==0 | visits$set==1) & !is.na(visits$pallRtPreStudyIndex) & visits$days_to_last_contact_or_death>0,]
+for(which_model in seq(length(model_name))) {
+  logfilename <- paste(output_dir,'log.txt',sep='')
+  write(paste('Run time:',Sys.time(),'Features:',model_name[which_model]),file=logfilename,append=TRUE)
 
-# Choose cut-points to discretize prognostic index, based on best performance for palliative radiation courses that were given prior to prospective study
-n_bins <- 4 # With real patients, 7 bins are used but for the smaller simulated dataset 4 bins illustrate the procedure better
-cuts <- c(-999, 5.6, 6.2, 6.9, 999) #These cut-points were chosen manually to produce median survival close to intended for each bin, and place the most patients in the correct bin
-visits_trainvalid_PallRtPreStudy$progIndexPallRtBin <- cut(visits_trainvalid_PallRtPreStudy$progIndex, cuts, include = TRUE,labels=FALSE)
-mysurv <- npsurv(Surv(visits_trainvalid_PallRtPreStudy$days_to_last_contact_or_death, visits_trainvalid_PallRtPreStudy$dead) ~ visits_trainvalid_PallRtPreStudy$progIndexPallRtBin)
-correctBin <- data.frame(shorter=rep(NA,n_bins),longer=rep(NA,n_bins),median=rep(NA,n_bins),row.names=c('0-3','3.1-12','12.1-24','24.1-'))
-lowLimit <- c(0,3,12,24)*30.44 #Patients in bin 1 are predicted to live 0-3 months, bin 2 3.6-12 months, bin 3 12.1-24 months, bin 4 24.1 or more months
-upLimit <- c(3,12,24,999)*30.44
-mySumm <- summary(mysurv)
-for (i in seq(n_bins)) {
-  myTime <- mySumm$time[mySumm$strata==levels(mySumm$strata)[i]]
-  mySurvprob <- mySumm$surv[mySumm$strata==levels(mySumm$strata)[i]]
-  correctBin$shorter[i]<-1-mySurvprob[which(myTime>=lowLimit[i])[1]]
-  correctBin$longer[i]<-mySurvprob[which(myTime>upLimit[i])[1]]
-  correctBin$median[i]<-myTime[which(mySurvprob<0.5)[1]]/30.44
+  data_subset <- data[,model_features[[which_model]]]
+  data_train <- data_subset[visits$set==0,]
+  data_valid <- data_subset[visits$set==1,]
+  data_test <- data_subset[visits$set==2,]
+  data_subset <- 0
+  gc()
+
+  glmnet_file <- paste(output_dir,'glmnet_fit_', model_name[which_model], '.RData',sep='')
+  if(file.exists(glmnet_file)) {
+    load(paste(output_dir,'glmnet_fit_', model_name[which_model], '.RData',sep=''))
+  } else {
+    fit_timeperiod = NULL
+    for(i in seq(n_timebins)) {
+      fit_timeperiod[[i]] <- glmnet(data_train[visits_train$days_to_last_contact_or_death>=start_time[i],], Surv(visits_train_timeperiod[[i]]$days_to_last_contact_or_death, visits_train_timeperiod[[i]]$dead), family = "cox", alpha=0,standardize=FALSE)
+    }
+    save(fit_timeperiod, file=glmnet_file)
+  }
+    
+  lambda_file <- paste(output_dir,'lambda_',model_name[which_model],'.txt',sep='')
+  if(file.exists(lambda_file)) {
+    tempFrame <- read.csv(lambda_file, stringsAsFactors=FALSE)
+    best_lambda <- tempFrame$lambda
+  } else {
+    best_lambda=numeric(n_timebins)
+    for(i in seq(n_timebins)) {
+      results_frame <- data.frame(lambda=fit_timeperiod[[i]]$lambda, cindex_train=0, cindex_valid=0)
+      for (j in seq(1,nrow(results_frame))) {
+        pred_coef_train <- predict(fit_timeperiod[[i]],newx=data_train,s=fit_timeperiod[[i]]$lambda[j],type="link")
+        pred_coef_valid <- predict(fit_timeperiod[[i]],newx=data_valid,s=fit_timeperiod[[i]]$lambda[j],type="link")
+        results_frame[j,'cindex_train'] <- rcorr.cens(-pred_coef_train,Surv(visits_train$days_to_last_contact_or_death, visits_train$dead))[1]
+        results_frame[j,'cindex_valid'] <- rcorr.cens(-pred_coef_valid,Surv(visits_valid$days_to_last_contact_or_death, visits_valid$dead))[1]
+      }
+      best_lambda[i] <- results_frame$lambda[which(results_frame$cindex_valid-max(results_frame$cindex_valid) > -0.005)[1]]
+      write(paste('Time period:',i),file=logfilename,append=TRUE)
+      write.table(results_frame,file=logfilename,append=TRUE,row.names=FALSE)
+    }
+    write.table(data.frame(timeperiod=seq(n_timebins),lambda=best_lambda),file=lambda_file,append=FALSE,row.names=FALSE,sep=',')
+  }
+
+  n_knots <- 5
+  cph_timeperiod = NULL
+  glmnet_lp_timeperiod_allpts_train = NULL
+  glmnet_lp_timeperiod_valid = NULL
+  glmnet_lp_timeperiod_allpts_valid = NULL
+  glmnet_lp_timeperiod_test = NULL
+  glmnet_lp_timeperiod_allpts_test = NULL
+  for(i in seq(n_timebins)) {
+    glmnet_coefs_timeperiod <- as.vector(coef(fit_timeperiod[[i]],s=best_lambda[i]))
+    glmnet_lp_timeperiod_allpts_train[[i]] <- as.vector(data.matrix(data_train) %*% glmnet_coefs_timeperiod)
+    glmnet_lp_timeperiod_valid[[i]] <- as.vector(data.matrix(data_valid[visits_valid$days_to_last_contact_or_death>=start_time[i],]) %*% glmnet_coefs_timeperiod)
+    glmnet_lp_timeperiod_allpts_valid[[i]] <- as.vector(data.matrix(data_valid) %*% glmnet_coefs_timeperiod)
+    glmnet_lp_timeperiod_test[[i]] <- as.vector(data.matrix(data_test[visits_test$days_to_last_contact_or_death>=start_time[i],]) %*% glmnet_coefs_timeperiod)
+    glmnet_lp_timeperiod_allpts_test[[i]] <- as.vector(data.matrix(data_test) %*% glmnet_coefs_timeperiod)
+    v_temp <- visits_valid_timeperiod[[i]] #shorten text due to error in cph with long text
+    v_temp$d <- v_temp$days_to_last_contact_or_death
+    g_lp <- glmnet_lp_timeperiod_valid[[i]]
+    cph_timeperiod[[i]] <- cph(Surv(v_temp$d, v_temp$dead) ~ rcs(g_lp,n_knots), surv=TRUE)
+  }
+
+  time_inc <- 365.25/16
+  lp=NULL
+  pred_surv_timebin_train=NULL
+  pred_surv_timebin_valid=NULL
+  pred_surv_timebin_test=NULL
+  surv_times = NULL
+  for(i in seq(n_timebins)) {
+    pred_surv_timebin_train[[i]] <- survest(fit=cph_timeperiod[[i]], newdata=glmnet_lp_timeperiod_allpts_train[[i]], times=seq(0,end_time[i]-start_time[i],time_inc), se.fit=FALSE)$surv
+    pred_surv_timebin_valid[[i]] <- survest(fit=cph_timeperiod[[i]], newdata=glmnet_lp_timeperiod_allpts_valid[[i]], times=seq(0,end_time[i]-start_time[i],time_inc), se.fit=FALSE)$surv
+    pred_surv_timebin_test[[i]] <- survest(fit=cph_timeperiod[[i]], newdata=glmnet_lp_timeperiod_allpts_test[[i]], times=seq(0,end_time[i]-start_time[i],time_inc), se.fit=FALSE)$surv
+    if(i>1) {
+      pred_surv_timebin_train[[i]] <- pred_surv_timebin_train[[i]] * do.call(cbind,rep(list(pred_surv_timebin_train[[i-1]][,dim(pred_surv_timebin_train[[i-1]])[2]]),dim(pred_surv_timebin_train[[i]])[2]))
+      pred_surv_timebin_valid[[i]] <- pred_surv_timebin_valid[[i]] * do.call(cbind,rep(list(pred_surv_timebin_valid[[i-1]][,dim(pred_surv_timebin_valid[[i-1]])[2]]),dim(pred_surv_timebin_valid[[i]])[2]))
+      pred_surv_timebin_test[[i]] <- pred_surv_timebin_test[[i]] * do.call(cbind,rep(list(pred_surv_timebin_test[[i-1]][,dim(pred_surv_timebin_test[[i-1]])[2]]),dim(pred_surv_timebin_test[[i]])[2]))
+    }
+    surv_times=c(surv_times,start_time[i]+seq(0,end_time[i]-start_time[i],time_inc))
+  }
+  pred_surv_train <- do.call(cbind,pred_surv_timebin_train)
+  pred_surv_valid <- do.call(cbind,pred_surv_timebin_valid)
+  pred_surv_test <- do.call(cbind,pred_surv_timebin_test)
+  pred_surv1yr_train <- pred_surv_train[,min(which(surv_times >= 365.25))]
+  pred_surv1yr_valid <- pred_surv_valid[,min(which(surv_times >= 365.25))]
+  pred_surv1yr_test <- pred_surv_test[,min(which(surv_times >= 365.25))]
+  cindex_train <- rcorr.cens(pred_surv1yr_train,Surv(visits_train$days_to_last_contact_or_death, visits_train$dead))[1]
+  cindex_valid <- rcorr.cens(pred_surv1yr_valid,Surv(visits_valid$days_to_last_contact_or_death, visits_valid$dead))[1]
+  write(paste('Piecewise model 1yr survival C-index train:',cindex_train),file=logfilename,append=TRUE)
+  write(paste('Piecewise model 1yr survival C-index valid:',cindex_valid),file=logfilename,append=TRUE)
 }
-correctBin$shorter[1]<-0
-correctBin$longer[n_bins]<-0
-correctBin$correct <- 1-correctBin$shorter-correctBin$longer
-correctBin$n <- summary(as.factor(visits_trainvalid_PallRtPreStudy$progIndexPallRtBin))
 
-correctBin$n %*% correctBin$correct/nrow(visits_trainvalid_PallRtPreStudy) #proportion of patients assigned to correct bin
-survplot(fit=mysurv,conf="none",xlim=c(0,365*3),time.inc=365.25/4,lty=1,label.curves=list(keys="lines"),col=cbPalette) #plot survival of patients in the four bins
+#Calculations using final model
 
-# Test model performance using radiation courses on prospective study
-visits_PallRtStudy <- visits[!is.na(visits$pallRtStudyIndex),]
-visits_PallRtStudy$progIndexBin <- as.factor(cut(visits_PallRtStudy$progIndex, cuts, include = TRUE,labels=FALSE))
-visits_PallRtStudy$progPhysicianBin <- as.factor(sample(x=4,size=n_CoursesPallRtStudy,replace=TRUE)) #Generate simulated physician survival predictions (randomly assign to bins 1-4)
+#general statistics
+cbind(length(unique(visits$patient_id)),length(unique(visits_train$patient_id)), length(unique(visits_valid$patient_id)), length(unique(visits_test$patient_id)))
+cbind(nrow(visits_train), nrow(visits_valid), nrow(visits_test))
+mysurv <- npsurv(Surv(days_to_last_contact_or_death, dead) ~ 1, data=visits)
+mysurv
+summary(visits$days_to_last_contact_or_death)
+temp <- visits %>% group_by(patient_id) %>% top_n(1)
+summary(temp$dead)
 
-# Plot study patients' survival for the 4 bins of physician and model predictions
-mysurv <- npsurv(Surv(visits_PallRtStudy$days_to_last_contact_or_death, visits_PallRtStudy$dead) ~ visits_PallRtStudy$progPhysicianBin)
-survplot(fit=mysurv,conf="none",xlim=c(0,365.25*2),time.inc=365.25/4,lty=1,label.curves = FALSE,col=cbPalette[2],lwd=2,
-         xlab="Follow-up, months",
-         ylab="Survival")
-mysurv <- npsurv(Surv(visits_PallRtStudy$days_to_last_contact_or_death, visits_PallRtStudy$dead) ~ visits_PallRtStudy$progIndexBin)
-lines(mysurv,lty=1,lwd=2,col=cbPalette[3])
-legend(400,0.8,c("Physicians", "Machine learning model"),lty=c(1,1),lwd=c(2,2),col=cbPalette[2:3],cex=1)
-title("Blue machine learning; orange physican. 0-3, 3.1-12, 12.1-24, >24 months")
+cindex_test <- rcorr.cens(pred_surv1yr_test,Surv(visits_test$days_to_last_contact_or_death, visits_test$dead))[1]
+write(paste('Piecewise model 1yr survival C-index test:',cindex_test),file=logfilename,append=TRUE)
 
-# Display C-index for physicians, machine learning model
-w<-rcorr.cens(as.numeric(visits_PallRtStudy$progPhysicianBin),Surv(visits_PallRtStudy$days_to_last_contact_or_death, visits_PallRtStudy$dead))
-C <- w['C Index']
-se <- w['S.D.']/2
-low <- C-1.96*se; hi <- C+1.96*se
-'Palliative radiation study courses physician C-index (95% CI)'
-cbind(C, low, hi)
-
-w<-rcorr.cens(as.numeric(visits_PallRtStudy$progIndexBin),Surv(visits_PallRtStudy$days_to_last_contact_or_death, visits_PallRtStudy$dead))
-C <- w['C Index']
-se <- w['S.D.']/2
-low <- C-1.96*se; hi <- C+1.96*se
-'Palliative radiation study courses model C-index (95% CI)'
-cbind(C, low, hi)
-
-# Test for difference in discrimination between physicians and machine learning model
-temp<-rcorrp.cens(as.numeric(visits_PallRtStudy$progPhysicianBin),
-                  as.numeric(visits_PallRtStudy$progIndexBin),
-                  Surv(visits_PallRtStudy$days_to_last_contact_or_death, visits_PallRtStudy$dead),
-                  method=1)
-2*pnorm(-abs(temp[1]/temp[2])) #2 sided p value
-
-# Continuous net reclassification improvement from adding model prediction to physician prediction
-outcome <- visits_PallRtStudy[,c('days_to_last_contact_or_death','dead')]
-covs1 <- model.matrix(~visits_PallRtStudy$progPhysicianBin)[,-1] # Create dummy variables from factor. The "-1" removes the intercept term
-covs2 <- cbind(covs1,model.matrix(~visits_PallRtStudy$progIndexBin)[,-1]) # Create dummy variables from factor. The "-1" removes the intercept term
-x<-IDI.INF(outcome, covs1, covs2, 30.44*3)
-IDI.INF.OUT(x) #M1 indicates IDI;  M2 indicates NRI;  M3 indicates median difference
-
-# Per physician NRI from adding model to physician prediction
-n_phys <- 5
-visits_PallRtStudy$phys_id <- as.factor(sample(x=n_phys,size=n_CoursesPallRtStudy,replace=TRUE))
-phys_results <- data.frame(nri=rep(NA,n_phys),nri_lower=rep(NA,n_phys),nri_upper=rep(NA,n_phys))
-for (phys_id in seq(n_phys)) {
-  visits_phys <- visits_PallRtStudy[visits_PallRtStudy$phys_id==phys_id,]
-  outcome <- visits_phys[,c('days_to_last_contact_or_death','dead')]
-  covs1 <- model.matrix(~visits_phys$progPhysicianBin)[,-1] # Create dummy variables from factor. The "-1" removes the intercept term
-  covs2 <- cbind(covs1,model.matrix(~visits_phys$progIndexBin)[,-1]) # Create dummy variables from factor. The "-1" removes the intercept term
-  x<-IDI.INF(outcome, covs1, covs2, 30.44*3)
-  phys_results$nri[phys_id] <- 2*x$m2[1]
-  phys_results$nri_lower[phys_id] <- 2*x$m2[2]
-  phys_results$nri_upper[phys_id] <- 2*x$m2[3]
+#calibration plots
+n_bins <- 4
+time_inc <- 365.25/16
+svg(filename = paste(output_dir,'calib_valid_',model_name[which_model],'.svg',sep=''), width = 15, height = 4.5)
+par(mfcol=c(1,n_timebins))
+for(i in seq(n_timebins)) {
+  surv_times_temp=seq(0,end_time[i]-start_time[i],time_inc)
+  pred_surv_timebin <- survest(fit=cph_timeperiod[[i]], newdata=glmnet_lp_timeperiod_valid[[i]], times=surv_times_temp, se.fit=FALSE)$surv
+  pred_surv_endofbin <- pred_surv_timebin[,dim(pred_surv_timebin)[2]]
+  progIndexBin <- cut(pred_surv_endofbin, quantile(pred_surv_endofbin, probs = cox_probs), include = TRUE)
+  mysurv <- npsurv(Surv(visits_valid_timeperiod[[i]]$days_to_last_contact_or_death, visits_valid_timeperiod[[i]]$dead) ~ progIndexBin)
+  plot(mysurv,axes=FALSE,xlim=c(0,end_time[i]-start_time[i]),xlab='Follow-up (years)',ylab='Overall survival',xaxs="i", yaxs="i",col=cbPalette[2],lwd=2)
+  axis(side=1, at=seq(0,end_time[i]-start_time[i],365.25/2), labels=seq(0,end_time[i]-start_time[i],365.25/2))
+  axis(side=2, at=seq(0,1,0.1), labels=c('0.0','0.1','0.2','0.3','0.4','0.5','0.6','0.7','0.8','0.9','1.0'))
+  rug(x = seq(0,end_time[i]-start_time[i],365.25/4), ticksize = -0.01, side = 1)
+  for (bin in seq(n_bins)) {
+    bin_surv <- pred_surv_timebin[progIndexBin==levels(progIndexBin)[bin],]
+    y <- colMeans(bin_surv)
+    lines(surv_times_temp, y, col=cbPalette[3], lwd=2)
+  }
+  title(paste('Validation set calibration for timeperiod',i))
 }
-phys_results$phys_id <- seq(n_phys)
-phys_freq <- visits_PallRtStudy %>% group_by(phys_id) %>% summarise(count=n())
-phys_results$count <- phys_freq$count
+dev.off()
 
-myplot = ggplot(data=phys_results,aes(x=reorder(phys_id,nri),y=nri,size=count))+
-  geom_errorbar(aes(x=reorder(phys_id,nri),ymin=nri_lower,ymax=nri_upper,size=1),width=0.3)+
-  geom_point(shape=21,colour="black",fill=cbPalette[6])+scale_size_area()+  
-  scale_y_continuous(limits=c(-2,2),breaks=seq(-2,2,0.5))+
-  geom_hline(yintercept=0,linetype=2)+
-  labs(y="Continuous NRI",x="Physician")+
-  theme_bw(base_size = 12)+theme(panel.grid.major.x=element_blank(),panel.grid.minor.x=element_blank())
-myplot # plot per-physician NRI with 95% CIs
+svg(filename = paste(output_dir,'calib_test_',model_name[which_model],'.svg',sep=''), width = 15, height = 4.5)
+par(mfcol=c(1,n_timebins))
+for(i in seq(n_timebins)) {
+  surv_times_temp=seq(0,end_time[i]-start_time[i],time_inc)
+  pred_surv_timebin <- survest(fit=cph_timeperiod[[i]], newdata=glmnet_lp_timeperiod_test[[i]], times=surv_times_temp, se.fit=FALSE)$surv
+  pred_surv_endofbin <- pred_surv_timebin[,dim(pred_surv_timebin)[2]]
+  progIndexBin <- cut(pred_surv_endofbin, quantile(pred_surv_endofbin, probs = cox_probs), include = TRUE)
+  mysurv <- npsurv(Surv(visits_test_timeperiod[[i]]$days_to_last_contact_or_death, visits_test_timeperiod[[i]]$dead) ~ progIndexBin)
+  plot(mysurv,axes=FALSE,xlim=c(0,end_time[i]-start_time[i]),xlab='Follow-up (years)',ylab='Overall survival',xaxs="i", yaxs="i",col=cbPalette[2],lwd=2)
+  axis(side=1, at=seq(0,end_time[i]-start_time[i],365.25/2), labels=seq(0,end_time[i]-start_time[i],365.25/2))
+  axis(side=2, at=seq(0,1,0.1), labels=c('0.0','0.1','0.2','0.3','0.4','0.5','0.6','0.7','0.8','0.9','1.0'))
+  rug(x = seq(0,end_time[i]-start_time[i],365.25/4), ticksize = -0.01, side = 1)
+  for (bin in seq(n_bins)) {
+    bin_surv <- pred_surv_timebin[progIndexBin==levels(progIndexBin)[bin],]
+    y <- colMeans(bin_surv)
+    lines(surv_times_temp, y, col=cbPalette[3], lwd=2)
+  }
+  title(paste('Test set calibration for timeperiod',i))
+}
+dev.off()
 
-#Performance of high/low risk groups according to physicians and machine learning model
-#For true/false positive rates, cases=died within 3 months, controls=survived >3 months
+#ROC curves at specific follow-up time points
+fu_time_array <- 365.25*c(1/12, 1/4, 1)
+svg(filename = paste(output_dir,'roc.svg',sep=''), width = 10, height = 3)
+par(mfcol=c(1,length(fu_time_array)))
+for(fu_time in fu_time_array) {
+  subset <- visits_test$days_to_last_contact_or_death>fu_time | visits_test$dead==TRUE
+  roc_obj <- roc(c(visits_test[subset,'days_to_last_contact_or_death']>fu_time), pred_surv1yr_test[subset])
+  print(c(fu_time, auc(roc_obj)))
+  plot(roc_obj,xaxs="i", yaxs="i",col=cbPalette[3])
+  title(paste('ROC curve for follow-up time:',fu_time))
+}
+dev.off()
 
-fu_time <- 30.44*3 # Analyze probability of 3 month survival
-mysurv <- npsurv(Surv(visits_PallRtStudy$days_to_last_contact_or_death, visits_PallRtStudy$dead) ~ 1)
-temp <- summary(mysurv,times=fu_time)
-case_prop <- 1 - temp$surv
+#model coefficients for 0-6 month follow-up time period
+glmnet_coefs <- coef(fit_timeperiod[[1]],s=best_lambda[1])
+write.table(data.frame(coef=as.numeric(glmnet_coefs)),file=paste(output_dir,'coefs.csv',sep=''),append=FALSE,row.names=FALSE,sep=',')
 
-#Compute performance characteristics of physicians
-visits_temp <- visits_PallRtStudy[visits_PallRtStudy$progPhysicianBin==1,]
-mysurv <- npsurv(Surv(visits_temp$days_to_last_contact_or_death, visits_temp$dead) ~ 1)
-temp <- summary(mysurv,times=fu_time)
-ppv_phys <- 1-temp$surv
-visits_temp <- visits_PallRtStudy[visits_PallRtStudy$progPhysicianBin!=1,]
-mysurv <- npsurv(Surv(visits_temp$days_to_last_contact_or_death, visits_temp$dead) ~ 1)
-temp <- summary(mysurv,times=fu_time)
-npv_phys <- temp$surv
-tp <- ppv_phys*sum(visits_PallRtStudy$progPhysicianBin==1)/nrow(visits_PallRtStudy)
-fp <- (1-ppv_phys)*sum(visits_PallRtStudy$progPhysicianBin==1)/nrow(visits_PallRtStudy)
-tn <- npv_phys*sum(visits_PallRtStudy$progPhysicianBin!=1)/nrow(visits_PallRtStudy)
-fn <- (1-npv_phys)*sum(visits_PallRtStudy$progPhysicianBin!=1)/nrow(visits_PallRtStudy)
-tpr_phys <- tp/(tp+fn)
-fpr_phys <- fp/(fp+tn)
-prop_hr_phys <- (tpr_phys*case_prop + fpr_phys*(1-case_prop)) #proportion of patients put in high risk group
-
-#Compute performance characteristics of model
-visits_temp <- visits_PallRtStudy[visits_PallRtStudy$progIndex>5.6,]
-mysurv <- npsurv(Surv(visits_temp$days_to_last_contact_or_death, visits_temp$dead) ~ 1)
-temp <- summary(mysurv,times=fu_time)
-ppv_model <- 1-temp$surv
-visits_temp <- visits_PallRtStudy[visits_PallRtStudy$progIndexBin!=1,]
-mysurv <- npsurv(Surv(visits_temp$days_to_last_contact_or_death, visits_temp$dead) ~ 1)
-temp <- summary(mysurv,times=fu_time)
-npv_model <- temp$surv
-tp <- ppv_phys*sum(visits_PallRtStudy$progIndexBin==1)/nrow(visits_PallRtStudy)
-fp <- (1-ppv_model)*sum(visits_PallRtStudy$progIndexBin==1)/nrow(visits_PallRtStudy)
-tn <- npv_phys*sum(visits_PallRtStudy$progIndexBin!=1)/nrow(visits_PallRtStudy)
-fn <- (1-npv_model)*sum(visits_PallRtStudy$progIndexBin!=1)/nrow(visits_PallRtStudy)
-tpr_model <- tp/(tp+fn)
-fpr_model <- fp/(fp+tn)
-prop_hr_model <- (tpr_model*case_prop + fpr_model*(1-case_prop)) #proportion of patients put in high risk group
-
-#Compute category-based NRI of substituting model prediction for physician prediction
-nri <- (tpr_model-tpr_phys) + (fpr_phys-fpr_model) #category-based net reclassification improvement
-print(cbind(fu_time, case_prop, nri))
-print(cbind(fpr_phys,tpr_phys,ppv_phys,npv_phys,prop_hr_phys))
-print(cbind(fpr_model,tpr_model,ppv_model,npv_model,prop_hr_model))
+#plot actual survival for four bins (predicted survival 0-3 ,3-6, 6-12, >12 months)
+visits_test$median_surv <- max(surv_times)
+for(i in seq(nrow(visits_test))) {
+  if(max(pred_surv_test[i,] < 0.5)) { #if median survival reached for this visit
+    visits_test[i, 'median_surv'] <- surv_times[which(pred_surv_test[i,]<0.5)[1]]
+  }
+}
+visits_test$median_surv_bin <- cut(visits_test$median_surv, 365.25*c(0, 1/4, 1/2, 1, 999), include.lowest = TRUE)
+mysurv <- survfit(Surv(days_to_last_contact_or_death, dead) ~ median_surv_bin, data=visits_test)
+svg(filename = paste(output_dir,'test_surv_bins.svg',sep=''), width = 10.5, height = 8)
+ggsurvplot(mysurv, data = visits_test, risk.table = TRUE,censor=FALSE,break.x.by=365.25/2,break.y.by=0.1,xlim=c(0,365.25*5),palette=cbPalette[1:4],axes.offset=FALSE)
+dev.off()
