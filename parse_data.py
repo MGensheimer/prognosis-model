@@ -6,10 +6,10 @@
 #   labsvitals.h5: HDF5 file with array of labs/vitals features for each visit
 #   diag_proc_medi.h5: HDF5 file with array of diagnosis/procedure/medication features for each visit
 #
-# Tested with Python 3.5.2
+# Tested with Python 3.5
 #
-# Author: Michael Gensheimer, Stanford University, Mar. 8, 2018
-# michael.gensheimer@gmail.com
+# Author: Michael Gensheimer, Stanford University, May 8, 2018
+# mgens@stanford.edu
 
 import pandas as pd
 import numpy as np
@@ -35,6 +35,7 @@ import tables
 
 np.random.seed(0)
 
+###############################################################################
 #Populate notes dataframe with data from IMDB sentiment analysis dataset
 #The data can be downloaded from: http://ai.stanford.edu/~amaas/data/sentiment/ 
 
@@ -55,7 +56,9 @@ for filename in files:
 n_pts = 1000  #1000 simulated patients
 n_notes=25000 #25000 simulated notes
 
-#Create simulated distributions of death and censoring times. The first half of the patients have a good prognosis, the second half have a poor prognosis. 
+#############################################################################################
+#Create simulated distributions of death and censoring times. 
+#The first half of the patients have a good prognosis, the second half have a poor prognosis. 
 time = np.floor(np.random.exponential(365*4/np.log(2),int(n_pts/2)))
 censtime = np.floor(np.random.exponential((365*3)/np.log(2),int(n_pts/2)))
 event_goodprog = time<censtime
@@ -97,8 +100,11 @@ notes['has_fu'] = notes.days_to_last_contact_or_death>0 # does patient have any 
 notes['include_surv_12mo'] = (notes.has_fu & notes.dead) | (notes.days_to_last_contact_or_death>365) # include in 12 month survival analysis
 notes['surv_12mo'] = ~notes.dead | (notes.days_to_last_contact_or_death>365) # did pt survive for 12 months or more
 
+#####################
 #Note text processing
-#remove patient name from notes
+
+###############################
+#Remove patient name from notes
 dask.set_options(get=dask.multiprocessing.get)
 df=dd.from_pandas(notes,npartitions=4)
 result=df.apply(lambda x: re.sub(x.firstname+'|'+x.lastname,'',x.note_text,flags=re.IGNORECASE),axis=1) 
@@ -120,85 +126,55 @@ notes.note_text=result.compute()
 df=0
 result=0
 
-#parse notes using Spacy NLP. Restrict to most common 1000 words (when using real data, this is 20,000 words)
-n_common_words=1000
+###########################################################
+#Lemmatize notes using Spacy NLP library. Takes at least a few minutes.
 en_nlp = spacy.load('en')
-def count_words(inSeries):
-  counts=np.zeros(4000000)
-  for doc in en_nlp.pipe(inSeries,n_threads=4,batch_size=1000):
-  #for doc in en_nlp.pipe(inSeries.values.astype(unicode),n_threads=1,batch_size=1000):
-    doc_array=doc.to_array([attrs.LEMMA,attrs.IS_ALPHA])
-    counts[doc_array[doc_array[:,1]==True,0]]=counts[doc_array[doc_array[:,1]==True,0]]+1
-  return counts
+outList=list()
+for doc in en_nlp.pipe(notes.note_text,n_threads=4,batch_size=5000):
+  result = []
+  for token in doc:
+    if token.is_punct==False:
+      result.append(re.sub('-','',token.lemma_))
+  outList.append(' '.join(result))
 
-most_common=np.argsort(-count_words(notes.note_text))[:n_common_words]
-most_common_words=np.array(list(map(lambda x: en_nlp.vocab[int(x)].lower_,most_common)))
+notes['note_text'] = pd.Series(outList, index=notes.index)
+notes=notes.reset_index() #make index consecutive so can easily map notes dataframe to feature arrays later
 
-def parse_notes(inSeries):
-  outList=list()
-  counter=0
-  for doc in en_nlp.pipe(inSeries,n_threads=4,batch_size=5000):
-    doc_array=doc.to_array([attrs.LEMMA])
-    doc_array_clean=doc_array[np.in1d(doc_array,most_common)]
-    outList.append(str.join(' ',list(map(lambda x: en_nlp.vocab.strings[int(x)],doc_array_clean))))
-    counter=counter+1
-  return outList
-
-temp=parse_notes(notes.note_text)
-notes.loc[:,'note_text_parsed']=' ' 
-chunksize=1000
-for i in range(int(len(notes)/chunksize)): #looping avoids MemoryError
-  notes.loc[notes.index[i*chunksize:(i+1)*chunksize],'note_text_parsed']=temp[i*chunksize:(i+1)*chunksize]
-
-notes.loc[notes.index[(i+1)*chunksize:],'note_text_parsed']=temp[(i+1)*chunksize:] #last chunk
-temp=0
-notes=notes.reset_index() #make index consecutive so can easily map notes dataframe to feature arrays later  
-
-#Create random train/validate/test split. Assign 70% of pts to train set, 15% to validation set, 15% to test set.
-train_prop=0.7
-valid_prop=0.15
-test_prop=0.15
+#################################################################################
+#Create random train/test split. Assign 80% of pts to train set, 20% to test set.
+train_prop=0.8
+test_prop=1-train_prop
 pts_all=pd.Series(notes.patient_id[notes.has_fu==True].unique())
 pts_test=pts_all.sample(n=int(len(pts_all)*test_prop),random_state=4)
-pts_train=pts_all[~pts_all.isin(pts_test)].sample(frac=train_prop/(1-test_prop),random_state=1)
-pts_validate=pts_all[~pts_all.isin(pts_train) & ~pts_all.isin(pts_test)]
-notes.loc[:,'set']=2 #0=train, 1=validate, 2=test
+pts_train=pts_all[~pts_all.isin(pts_test)]
+notes.loc[:,'set']=2 #0=train, 2=test
 notes.loc[notes.patient_id.isin(pts_train),'set']=0
-notes.loc[notes.patient_id.isin(pts_validate),'set']=1
 train_sample = notes.index[notes.patient_id.isin(pts_train) & notes.include_surv_12mo].values #for GLMNET note term variable selection
-validate_sample = notes.index[notes.patient_id.isin(pts_validate) & notes.include_surv_12mo].values
 
+####################################################
 #GLMNET for selection of most useful note text terms
-max_features=10000
+max_features=10000 #would be 100,000 for real dataset
 tfidf_vect = TfidfVectorizer(max_features=max_features,ngram_range=(1, 2))
-tfidf_vect.fit(notes.loc[train_sample].note_text_parsed)
-all_tfidf=tfidf_vect.transform(notes.note_text_parsed)
+tfidf_vect.fit(notes.loc[train_sample].note_text)
+all_tfidf=tfidf_vect.transform(notes.note_text)
 all_tfidf = scipy.sparse.csc_matrix(all_tfidf)
 
 from glmnet_py import glmnet; from glmnetPlot import glmnetPlot 
 from glmnetPrint import glmnetPrint; from glmnetCoef import glmnetCoef; from glmnetPredict import glmnetPredict
+
 fit = glmnet(x = all_tfidf[train_sample,:], y = notes.loc[train_sample].surv_12mo.values*1.0, family = 'binomial', alpha=1.0)
-
-chunksize=1000
-num_s = fit['lambdau'].shape[0]
-predictions = np.zeros([len(validate_sample), num_s])
-for i in range(int(len(validate_sample)/chunksize)): #looping avoids MemoryError when using real dataset
-  predictions[i*chunksize:(i+1)*chunksize,:] = glmnetPredict(fit, all_tfidf[validate_sample[i*chunksize:(i+1)*chunksize],:], ptype = 'response')
-predictions[(i+1)*chunksize:,:] = glmnetPredict(fit, all_tfidf[validate_sample[(i+1)*chunksize:],:], ptype = 'response')
-
-print('Lambda_index Lambda #vars ValidationAUC')
-for i in range(num_s):
-  validate_auc=metrics.roc_auc_score(notes.loc[validate_sample].surv_12mo,predictions[:,i])
-  print(i, fit['lambdau'][i], fit['df'][i], validate_auc)
-
-#best lambda is index 19, with validation AUC around 0.70
-#save the selected note text terms
-coefs=glmnetCoef(fit, s=scipy.float64([fit['lambdau'][19]]))[1:].flatten()
+best_lambda_i = np.where(fit['df']>100)[0][0] #choose lambda so that there are around 100 selected note text terms
+coefs=glmnetCoef(fit, s=scipy.float64([fit['lambdau'][best_lambda_i]]))[1:].flatten()
 temp=tfidf_vect.get_feature_names()
-temp2=list(itertools.compress(temp,abs(coefs)>0))
-features=pd.DataFrame({'feature' : temp2})
+from itertools import compress
+selected_terms=list(compress(temp,abs(coefs)>0))
+print('Selected terms:')
+print(selected_terms)
+features=pd.DataFrame({'feature' : selected_terms})
 features.to_csv(output_dir+'text_features.csv',index=False)
 
+#######################################################################################################
+#Create notes feature vector for each visit by weighting past notes less heavily than more recent notes
 all_tfidf_lasso = all_tfidf[:,abs(coefs)>0].toarray().astype('float32')
 visits_tfidf_lasso=np.zeros([len(notes),all_tfidf_lasso.shape[1]], dtype='float32')
 half_life=30 #influence of notes decays over time with this half-life
@@ -213,19 +189,19 @@ for which_pt, dates in notes.groupby('patient_id'):
     notes_in_window=this_pt_notes[this_pt_notes.visit_date<=visit_date].index.values
     visits_tfidf_lasso[tfidf_index,:]=weight.values.dot(all_tfidf_lasso[notes_in_window,:])
     tfidf_index=tfidf_index+1
-    if tfidf_index % 40000 == 0:
-      print(float(tfidf_index)/len(notes))
 
-#export GLMNET to R
+###########################
+#export note text data to R
 h5file = tables.open_file(output_dir+'text.h5', mode='w')
 data_storage = h5file.create_array(h5file.root, 'visits_tfidf_lasso', visits_tfidf_lasso)
 h5file.close()
 
 visits = notes.copy()
-visits.drop(['note_text_parsed', 'note_text'],axis=1,inplace=True)
+visits.drop(['note_text', 'note_text'],axis=1,inplace=True)
 feather.write_dataframe(visits, output_dir+'visits.feather')
 
-#Process laboratory data
+##################################
+#Process simulated laboratory data
 n_labs = 100000
 num_lab_cats = 50 #only analyze most common labs 
 labs = pd.DataFrame({ #simulated lab data
@@ -258,6 +234,7 @@ lab_ids=labs_vitals.component_id.sort_values().unique() #list of component IDs
 lab_dict=dict(zip(lab_ids,range(0,len(lab_ids)))) #dictionary maps from component ID to index
 labs_vitals_bypt = sortedcontainers.SortedDict({k:copy.copy(labs_vitals.loc[labs_vitals.patient_id==k,:]) for k in labs_vitals.patient_id.unique()})
 
+####################################################################################
 #Find most recent labs at time of each visit and do exponential time decay weighting
 visits_labs=np.zeros([len(visits),len(lab_ids)], dtype='float32')
 visits_labs_index=0
@@ -276,12 +253,13 @@ for which_pt, dates in visits.groupby('patient_id'):
   else:
     visits_labs_index=visits_labs_index+len(dates)
 
+#############################
 #export labs/vitals data to R
 h5file = tables.open_file(output_dir+'labsvitals.h5', mode='w')
 data_storage = h5file.create_array(h5file.root, 'visits_labs', visits_labs)
 h5file.close()
 
-
+#######################################
 #procedures, diagnoses, and medications
 n_diagnoses=10000
 n_procedures=10000
