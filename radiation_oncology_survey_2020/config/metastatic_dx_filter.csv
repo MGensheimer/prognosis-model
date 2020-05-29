@@ -1,0 +1,446 @@
+﻿DX_ID,ICD9_CODE,DX_NAME
+1815,197,Secondary malignant neoplasm of respiratory and digestive systems
+1816,197.0,Secondary malignant neoplasm of lung (CMS-HCC)
+1817,197.1,Secondary malignant neoplasm of mediastinum (CMS-HCC)
+1818,197.2,Secondary malignant neoplasm of pleura (CMS-HCC)
+1819,197.3,Secondary malignant neoplasm of other respiratory organs (CMS-HCC)
+1820,197.4,Secondary malignant neoplasm of small intestine including duodenum (CMS-HCC)
+1821,197.5,Secondary malignant neoplasm of large intestine and rectum (CMS-HCC)
+1822,197.6,Secondary malignant neoplasm of retroperitoneum and peritoneum (CMS-HCC)
+1823,197.7,Secondary malignant neoplasm of liver (CMS-HCC)
+1824,197.8,Secondary malignant neoplasm of other digestive organs and spleen
+1826,198.0,Secondary malignant neoplasm of kidney (CMS-HCC)
+1827,198.1,Secondary malignant neoplasm of other urinary organs (CMS-HCC)
+1828,198.2,Secondary malignant neoplasm of skin (CMS-HCC)
+1829,198.3,Secondary malignant neoplasm of brain and spinal cord (CMS-HCC)
+1830,198.4,Secondary malignant neoplasm of other parts of nervous system (CMS-HCC)
+1831,198.5,Secondary malignant neoplasm of bone and bone marrow
+1832,198.6,Secondary malignant neoplasm of ovary (CMS-HCC)
+1833,198.7,Secondary malignant neoplasm of adrenal gland (CMS-HCC)
+1835,198.81,Secondary malignant neoplasm of breast (CMS-HCC)
+1836,198.82,Secondary malignant neoplasm of genital organs (CMS-HCC)
+1837,198.89,Secondary malignant neoplasm of other specified sites(198.89)
+89262,197.6,Pseudomyxoma peritonei
+114052,198.4,Leptomeningeal metastases (CMS-HCC)
+119132,197.7,Hepatic metastases (CMS-HCC)
+119241,188.9,Metastatic bladder cancer
+119261,199.1,Metastasis to lung
+119262,199.1,Pulmonary metastases
+119263,197.1,Metastasis to mediastinum (CMS-HCC)
+119265,197.2,Metastasis to pleura (CMS-HCC)
+119266,197.2,Pleural metastasis (CMS-HCC)
+119267,197.4,Metastasis to small intestine (CMS-HCC)
+119268,197.5,Metastasis to colon (CMS-HCC)
+119270,197.5,Metastasis to rectum (CMS-HCC)
+119271,197.6,Metastasis to peritoneal cavity (CMS-HCC)
+119272,197.6,Metastasis to peritoneum (CMS-HCC)
+119273,197.6,Pseudomyxoma peritonei (CMS-HCC)
+119274,197.7,Metastasis to liver (CMS-HCC)
+119275,198.0,Metastasis to kidney (CMS-HCC)
+119276,198.2,Metastasis to skin (CMS-HCC)
+119277,198.3,Metastasis to brain (CMS-HCC)
+119278,198.3,Metastasis to spinal cord (CMS-HCC)
+119280,198.5,Bone metastasis (CMS-HCC)
+119281,198.5,Metastasis to bone (CMS-HCC)
+119282,198.5,Osseous metastasis (CMS-HCC)
+119283,198.6,Metastasis to ovary (CMS-HCC)
+119284,198.7,Metastasis to adrenal gland (CMS-HCC)
+119285,198.81,Metastasis to breast (CMS-HCC)
+119287,199.1,Metastatic cancer (CMS-HCC)
+119387,218.9,Metastasizing leiomyoma of uterus (CMS-HCC)
+124009,198.2,Metastasis to skin of breast (CMS-HCC)
+124010,,Metastasis to meninges (cerebral) (spinal)
+127091,198.6,Krukenberg tumor (CMS-HCC)
+127092,199.1,Metastatic signet ring cell carcinoma (CMS-HCC)
+138369,198.4,Secondary malignant neoplasm of nervous system (CMS-HCC)
+138370,199.1,Secondary malignant neoplasm (CMS-HCC)
+143935,199.1,Lung metastases
+144535,170.9,Metastatic bone tumor (CMS-HCC)
+145899,198.5,Bone metastases (CMS-HCC)
+145900,198.5,Bone neoplasm secondary (CMS-HCC)
+145904,198.5,Bony metastasis (CMS-HCC)
+146071,198.5,"Cancer, metastatic to bone (CMS-HCC)"
+146072,197.7,"Cancer, metastatic to liver (CMS-HCC)"
+146074,198.2,"Cancer, metastatic to skin (CMS-HCC)"
+146843,198.2,Cutaneous metastasis (CMS-HCC)
+146975,198.2,Dermal metastasis (CMS-HCC)
+148418,197.7,Hepatic metastasis (CMS-HCC)
+149314,197.7,Liver metastases (CMS-HCC)
+149320,197.7,Liver secondary cancer
+149993,197.1,Mediastinal metastasis (CMS-HCC)
+150044,198.0,Metastasis to renal parenchyma (CMS-HCC)
+150045,198.5,Metastatic cancer to bone (CMS-HCC)
+150046,197.7,Metastatic cancer to liver (CMS-HCC)
+150047,199.1,Metastatic cancer to lung
+150049,198.7,Metastatic malignant neoplasm to adrenal gland (CMS-HCC)
+150051,198.0,Metastatic tumor in kidney (CMS-HCC)
+150052,198.5,Metastatic tumor of bone (CMS-HCC)
+150642,198.6,Ovarian metastasis (CMS-HCC)
+151232,199.1,Pulmonary metastasis
+151346,198.0,Renal metastasis (CMS-HCC)
+151613,197.7,Secondary malignancy of liver (CMS-HCC)
+151778,198.2,Skin metastases (CMS-HCC)
+151788,198.2,"Skin, metastatic cancer to (CMS-HCC)"
+154544,188.9,"Bladder cancer, metastatic"
+154713,198.3,Brain metastases (CMS-HCC)
+154994,198.4,Cancer with leptomeningeal spread (CMS-HCC)
+154995,198.4,"Cancer, meningeal carcinomatosis (CMS-HCC)"
+155128,198.4,Carcinomatous meningitis (CMS-HCC)
+161301,198.4,"Leptomeningitis, carcinomatous (CMS-HCC)"
+161678,198.4,Lymphomatous meningitis (CMS-HCC)
+162078,198.4,Meningeal carcinomatosis (CMS-HCC)
+162091,198.4,"Meningitis, leukemic (CMS-HCC)"
+162093,198.4,"Meningitis, lymphomatous (CMS-HCC)"
+162166,198.3,Metastatic cancer to brain (CMS-HCC)
+162167,198.4,Metastatic cancer to leptomeninges (CMS-HCC)
+162168,188.9,Metastatic carcinoma of the bladder (CMS-HCC)
+162169,198.2,Metastatic malignant neoplasm to skin of breast (CMS-HCC)
+163834,197.6,Peritoneal seedling (CMS-HCC)
+165413,198.3,Secondary cancer of brain (CMS-HCC)
+165419,198.3,Secondary malignant neoplasm of brain (CMS-HCC)
+165420,197.6,Secondary malignant neoplasm of peritoneum (CMS-HCC)
+177011,197.7,Metastases to the liver (CMS-HCC)
+177012,199.1,Metastatic cancer to the lung
+177282,199.1,Secondary lung cancer
+189193,154.0,"Colorectal cancer, stage IV (CMS-HCC)"
+190602,183.0,Metastatic primary ovarian cancer
+190603,199.1,Metastatic primary lung cancer
+198418,199.1,Metastatic papillary carcinoma (CMS-HCC)
+203548,197.2,MALIGNANT PLEURAL EFFUSION
+1020776,155.0,"Liver cancer, primary, metastatic"
+1026814,199.1,"Adenocarcinoma, metastatic (CMS-HCC)"
+1026817,199.1,"Carcinoma, metastatic (CMS-HCC)"
+1026818,199.1,Metastatic carcinoma (CMS-HCC)
+1026819,199.1,"Squamous cell carcinoma, metastatic (CMS-HCC)"
+1026820,199.1,Metastatic squamous cell carcinoma (CMS-HCC)
+1027405,199.1,"Neoplasm, metastatic (CMS-HCC)"
+1027406,199.1,"Tumor, metastatic (CMS-HCC)"
+1031359,199.1,Metastatic adenocarcinoma (CMS-HCC)
+1031678,199.1,"Cancer, metastatic (CMS-HCC)"
+1032125,199.1,Metastasis of unknown primary (CMS-HCC)
+1032127,199.1,Metastasis of unknown origin (CMS-HCC)
+1034949,198.3,Brain metastasis (CMS-HCC)
+1034950,198.5,Metastasis to spinal column (CMS-HCC)
+1034951,198.5,Spine metastasis (CMS-HCC)
+1034954,198.5,Metastatic cancer to spine (CMS-HCC)
+1048307,511.81,Malignant pleural effusion
+1052943,181,Metastatic choriocarcinoma (CMS-HCC)
+1052944,181,"Choriocarcinoma, metastatic (CMS-HCC)"
+1053227,189.0,Metastasis from malignant tumor of kidney (CMS-HCC)
+1053229,189.0,Metastatic kidney cancer
+1053230,162.9,Metastasis from malignant tumor of lung (CMS-HCC)
+1053232,199.1,Metastatic adenocarcinoma of unknown origin (CMS-HCC)
+1053364,171.9,Metastatic sarcoma (CMS-HCC)
+1055069,162.9,Metastatic lung cancer (metastasis from lung to other site) (CMS-HCC)
+1060802,198.1,Secondary malignant neoplasm of bladder (CMS-HCC)
+1069900,174.9,"Breast cancer, stage 4 (CMS-HCC)"
+1069917,174.9,"Invasive ductal carcinoma of breast, stage 4 (CMS-HCC)"
+1069918,174.9,"Infiltrating ductal carcinoma of breast, stage 4 (CMS-HCC)"
+1069999,185,Metastatic prostate cancer
+1070053,199.1,Metastatic neoplasm (CMS-HCC)
+1070055,199.1,Metastatic disease (CMS-HCC)
+1070703,188.9,Metastatic bladder cancer (metastasis from bladder to other site)
+1070872,162.9,Metastatic lung cancer
+1070873,199.1,SECONDARY MALIGNANT NEOPLASM OF LUNG
+1071053,188.9,Malignant neoplasm metastatic from bladder (CMS-HCC)
+1071512,197.0,Metastasis to lung (CMS-HCC)
+1071513,197.0,Pulmonary metastases (CMS-HCC)
+1071690,197.0,Lung metastases (CMS-HCC)
+1071700,197.0,Cancer with pulmonary metastases (CMS-HCC)
+1071701,197.0,"Cancer, metastatic to lung (CMS-HCC)"
+1071722,197.0,Metastatic cancer to lung (CMS-HCC)
+1071726,197.0,Pulmonary metastasis (CMS-HCC)
+1071776,199.1,Metastatic cancer to the lung
+1071780,197.0,Secondary lung cancer (CMS-HCC)
+1072277,199.0,Widespread metastatic malignant neoplastic disease (CMS-HCC)
+1076535,155.0,"Liver cancer, primary, metastatic"
+1076536,155.0,"Liver cancer, primary, with metastasis from liver to other site (CMS-HCC)"
+1076538,162.9,"Lung cancer, primary, with metastasis from lung to other site (CMS-HCC)"
+1076540,183.0,Metastatic primary ovarian cancer
+1076542,183.0,"Ovarian cancer, primary, with metastasis from ovary to other site"
+1076545,185,"Prostate cancer, primary, with metastasis from prostate to other site (CMS-HCC)"
+1076546,185,Metastatic prostate cancer
+1076552,198.82,Metastasis to prostate (CMS-HCC)
+1076555,188.9,"Bladder cancer, metastatic"
+1076556,188.9,Metastatic bladder cancer
+1076563,189.0,"Kidney cancer, primary, with metastasis from kidney to other site (CMS-HCC)"
+1076566,189.0,Metastatic kidney cancer
+1077768,162.9,"Cancer, lung, metastatic"
+1078434,199.1,Metastasis (CMS-HCC)
+1081830,198.7,"Cancer of adrenal gland, secondary (CMS-HCC)"
+1082227,162.9,"Cancer of lung, metastatic"
+1086277,209.70,Secondary neuroendocrine tumor (CMS-HCC)
+1089845,209.75,Secondary Merkel cell carcinoma(209.75)
+1090403,,"Cancer of bone or bone marrow, secondary"
+1092379,162.9,Metastatic primary lung cancer (CMS-HCC)
+1097043,198.89,Secondary malignant neoplasm of soft tissues (CMS-HCC)
+1097259,172.9,"Malignant melanoma, metastatic (CMS-HCC)"
+1101140,198.4,Secondary malignant neoplasm of choroid (CMS-HCC)
+1103524,198.5,Metastatic bone cancer (CMS-HCC)
+1104385,198.5,Metastatic adenocarcinoma to bone marrow (CMS-HCC)
+1104387,198.3,Metastatic adenocarcinoma to brain (CMS-HCC)
+1104389,198.81,Metastatic adenocarcinoma to breast (CMS-HCC)
+1104394,198.5,Metastatic cholangiocarcinoma to bone (CMS-HCC)
+1104400,198.5,Metastatic follicular cancer to bone (CMS-HCC)
+1104402,198.5,Metastatic hepatocellular carcinoma to bone (CMS-HCC)
+1104405,198.3,Metastatic hepatocellular carcinoma to brain (CMS-HCC)
+1104406,198.5,Metastatic large cell carcinoma to bone (CMS-HCC)
+1104410,198.89,Secondary melanoma of head and neck (CMS-HCC)
+1104411,198.89,Metastatic melanoma to head and neck (CMS-HCC)
+1104416,198.5,Metastatic renal cell carcinoma to bone (CMS-HCC)
+1104419,198.3,Metastatic renal cell carcinoma to brain (CMS-HCC)
+1104425,198.5,Metastatic small cell carcinoma to bone (CMS-HCC)
+1104430,198.5,Metastatic squamous cell carcinoma to bone (CMS-HCC)
+1104432,198.3,Metastatic squamous cell carcinoma to brain (CMS-HCC)
+1104434,198.89,Metastatic squamous cell carcinoma to head and neck (CMS-HCC)
+1104439,198.1,Metastatic transitional cell carcinoma to bladder (CMS-HCC)
+1104443,198.5,Metastatic transitional cell carcinoma to bone (CMS-HCC)
+1104674,172.9,Metastatic melanoma (CMS-HCC)
+1105825,197.5,Metastatic adenocarcinoma to colorectal region (CMS-HCC)
+1105827,197.5,Metastatic squamous cell carcinoma to colorectal region (CMS-HCC)
+1105944,198.89,Metastatic adenocarcinoma to intra-abdominal site (CMS-HCC)
+1105950,203.80,Metastatic bone plasmacytoma (multiple myeloma) (CMS-HCC)
+1105962,197.7,Metastatic Wilm's tumor to liver (CMS-HCC)
+1105965,197.0,Metastatic adenocarcinoma to lung (CMS-HCC)
+1105967,197.7,Metastatic squamous cell carcinoma to liver (CMS-HCC)
+1105970,197.7,Metastatic small cell carcinoma to liver (CMS-HCC)
+1105973,197.7,Metastatic sarcoma to liver (CMS-HCC)
+1105976,197.7,Metastatic renal cell carcinoma to liver (CMS-HCC)
+1105979,209.72,Metastatic malignant neuroendocrine tumor to liver (CMS-HCC)
+1105981,209.75,Metastatic Merkel cell carcinoma to liver (CMS-HCC)
+1105984,197.0,Metastatic hepatocellular carcinoma to lung (CMS-HCC)
+1105989,197.0,Metastatic cholangiocarcinoma to lung (CMS-HCC)
+1105993,209.79,Metastatic malignant carcinoid tumor to lung (CMS-HCC)
+1105999,197.7,Secondary melanoma of liver (CMS-HCC)
+1106000,197.7,Metastatic melanoma to liver (CMS-HCC)
+1106002,197.7,Metastatic leiomyosarcoma to liver (CMS-HCC)
+1106010,197.7,Metastatic carcinoma to liver (CMS-HCC)
+1106012,209.72,Metastatic malignant carcinoid tumor to liver (CMS-HCC)
+1106014,197.7,Metastatic angiosarcoma to liver (CMS-HCC)
+1106020,197.0,Metastatic squamous cell carcinoma to lung (CMS-HCC)
+1106023,197.0,Metastatic renal cell carcinoma to lung (CMS-HCC)
+1106027,197.0,Metastatic melanoma to lung (CMS-HCC)
+1106060,197.1,Metastatic adenocarcinoma of mediastinum (CMS-HCC)
+1106082,197.8,Metastatic renal cell carcinoma of pancreas (CMS-HCC)
+1106084,197.8,Metastatic melanoma to pancreas (CMS-HCC)
+1106086,197.8,Metastatic adenocarcinoma to pancreas (CMS-HCC)
+1106090,198.82,Metastatic adenocarcinoma to prostate (CMS-HCC)
+1106096,198.89,Metastatic renal cell carcinoma to intra-abdominal site (CMS-HCC)
+1106097,197.0,Metastatic malignant neoplasm to lung (CMS-HCC)
+1106103,197.6,Metastatic adenocarcinoma to retroperitoneum (CMS-HCC)
+1106113,197.4,Metastatic adenocarcinoma to small intestine (CMS-HCC)
+1106116,198.89,Metastatic hepatocellular carcinoma to soft tissue (CMS-HCC)
+1106149,198.82,Metastatic adenocarcinoma to uterus (CMS-HCC)
+1106293,198.89,Metastatic leiomyosarcoma to intra-abdominal site (CMS-HCC)
+1109137,202.80,"Metastatic lymphoma to brain, non-EBV mediated (CMS-HCC)"
+1109194,203.00,Metastatic multiple myeloma to bone (CMS-HCC)
+1109369,198.89,Metastatic renal cell carcinoma to thyroid (CMS-HCC)
+1109373,198.3,Metastatic malignant mixed tumor to spinal cord (CMS-HCC)
+1109375,197.8,Metastatic adenocarcinoma to stomach (CMS-HCC)
+1109379,198.6,Metastatic adenocarcinoma to ovary (CMS-HCC)
+1109383,198.82,Metastatic transitional cell carcinoma to prostate (CMS-HCC)
+1117823,174.9,Carcinoma of breast metastatic to bone (CMS-HCC)
+1117824,174.9,"Breast carcinoma metastatic, bone"
+1117825,174.9,Carcinoma of breast metastatic to brain (CMS-HCC)
+1117826,174.9,"Breast carcinoma metastatic, brain"
+1117827,174.9,Carcinoma of breast metastatic to central nervous system (CMS-HCC)
+1117828,174.9,"Breast carcinoma metastatic, CNS"
+1117829,174.9,Carcinoma of breast metastatic to liver (CMS-HCC)
+1117830,174.9,"Breast carcinoma metastatic, liver"
+1117831,174.9,Carcinoma of breast metastatic to lung (CMS-HCC)
+1117832,174.9,"Breast carcinoma metastatic, lung"
+1117833,174.9,Carcinoma of breast metastatic to pleura (CMS-HCC)
+1117834,174.9,"Breast carcinoma metastatic, pleura (CMS-HCC)"
+1117835,174.9,Carcinoma of breast metastatic to intrathoracic lymph node (CMS-HCC)
+1117842,174.9,Carcinoma of breast metastatic to skin (CMS-HCC)
+1117843,174.9,"Breast carcinoma metastatic, skin (CMS-HCC)"
+1118103,198.89,Metastatic squamous cell carcinoma to soft tissue (CMS-HCC)
+1118612,198.89,"Cancer, intra-abdominal organ, secondary (CMS-HCC)"
+1119410,198.89,Metastatic squamous cell carcinoma to throat (CMS-HCC)
+1120358,197.7,Secondary adenocarcinoma of liver (CMS-HCC)
+1120359,197.7,Metastatic adenocarcinoma to liver (CMS-HCC)
+1120871,218.9,Benign metastasizing leiomyoma of uterus (CMS-HCC)
+1121564,197.7,Liver metastasis (CMS-HCC)
+1121569,197.0,Lung metastasis (CMS-HCC)
+1121832,197.6,Peritoneal metastases (CMS-HCC)
+1122195,198.3,Secondary neoplasm of brain treated with radiation therapy (CMS-HCC)
+1123259,198.82,Metastatic malignant neoplasm to prostate (CMS-HCC)
+1124173,188.9,Bladder carcinoma metastatic to bone (CMS-HCC)
+1124183,188.9,Bladder carcinoma metastatic to lung (CMS-HCC)
+1124188,174.9,Carcinoma of breast metastatic to adrenal gland (CMS-HCC)
+1124189,174.9,Breast carcinoma metastatic to adrenal gland (CMS-HCC)
+1124200,174.9,Breast carcinoma metastatic to small intestine (CMS-HCC)
+1124203,153.9,Carcinoma of colon metastatic to multiple sites (CMS-HCC)
+1124204,153.9,Colon carcinoma metastatic to multiple sites (CMS-HCC)
+1124207,157.9,Carcinoma of pancreas metastatic to liver (CMS-HCC)
+1124208,157.9,Pancreatic carcinoma metastatic to liver (CMS-HCC)
+1125805,198.4,Malignant neoplasm metastatic to epidural space (CMS-HCC)
+1126106,209.73,Neuroendocrine carcinoma metastatic to bone (CMS-HCC)
+1126369,198.5,Osteolytic lesion due to metastasis (CMS-HCC)
+1126710,197.6,Pseudomyxoma peritonei related to benign adenoma (CMS-HCC)
+1128653,174.9,"Breast carcinoma metastatic to lymph node of head, face, or neck"
+1128656,174.9,Carcinoma of breast metastatic to multiple sites (CMS-HCC)
+1128657,174.9,Breast carcinoma metastatic to multiple sites (CMS-HCC)
+1128661,174.9,Breast carcinoma metastatic to pelvis (CMS-HCC)
+1128665,174.9,Breast carcinoma metastatic to peritoneum or retroperitoneum
+1130152,198.89,Secondary malignant neoplasm of chest wall (CMS-HCC)
+1130156,198.4,Orbital metastasis (CMS-HCC)
+1130159,198.89,Secondary malignant neoplasm of pericardium (CMS-HCC)
+1130161,197.8,Secondary malignant neoplasm of stomach (CMS-HCC)
+1132564,162.9,Primary lung cancer with metastasis from lung to other site (CMS-HCC)
+1132567,185,Primary prostate cancer with metastasis from prostate to other site (CMS-HCC)
+1132645,198.5,Secondary malignant neoplasm of bone (CMS-HCC)
+1134582,198.5,Metastatic carcinoma to bone (CMS-HCC)
+1134584,197.0,Metastatic carcinoma to lung (CMS-HCC)
+1135411,172.9,Metastatic malignant melanoma (CMS-HCC)
+1139288,198.4,Secondary malignant neoplasm of cerebral meninges (CMS-HCC)
+1141064,197.0,Secondary malignant neoplasm of left lung (CMS-HCC)
+1141067,197.0,Secondary malignant neoplasm of right lung (CMS-HCC)
+1162137,197.8,Secondary malignant neoplasm of spleen (CMS-HCC)
+1164745,199.1,Metastatic neoplastic disease (CMS-HCC)
+1169839,198.3,Metastatic cancer to brain or spinal cord
+1171340,197.6,Metastatic cancer to retroperitoneum (CMS-HCC)
+1173079,197.0,Metastatic cancer to lung of unknown cell type (CMS-HCC)
+1173081,198.3,Metastatic cancer to brain of unknown cell type (CMS-HCC)
+1184825,197.7,Secondary liver cancer (CMS-HCC)
+1186021,153.9,Colon cancer metastasized to multiple sites (CMS-HCC)
+1186024,157.9,Pancreatic cancer metastasized to liver (CMS-HCC)
+1186697,188.9,Bladder cancer metastasized to bone (CMS-HCC)
+1186699,188.9,Bladder cancer metastasized to intra-abdominal lymph nodes (CMS-HCC)
+1186701,188.9,Bladder cancer metastasized to liver (CMS-HCC)
+1186702,188.9,Bladder cancer metastasized to lung (CMS-HCC)
+1186704,188.9,Bladder cancer metastasized to small intestine (CMS-HCC)
+1186709,174.9,Breast cancer metastasized to bone (CMS-HCC)
+1186711,174.9,Breast cancer metastasized to brain (CMS-HCC)
+1186713,174.9,Breast cancer metastasized to central nervous system (CMS-HCC)
+1186714,174.9,Breast cancer metastasized to intra-abdominal lymph nodes (CMS-HCC)
+1186715,174.9,Breast cancer metastasized to intrapelvic lymph nodes (CMS-HCC)
+1186717,174.9,Breast cancer metastasized to intrathoracic lymph node (CMS-HCC)
+1186720,174.9,Breast cancer metastasized to liver (CMS-HCC)
+1186722,174.9,Breast cancer metastasized to lung (CMS-HCC)
+1186724,174.9,Breast cancer metastasized to multiple sites (CMS-HCC)
+1186728,174.9,Breast cancer metastasized to pelvis (CMS-HCC)
+1186733,174.9,Breast cancer metastasized to skin (CMS-HCC)
+1186734,174.9,Breast cancer metastasized to small intestine (CMS-HCC)
+1215226,197.0,Carcinoma metastatic to lung (CMS-HCC)
+1216377,197.0,Metastatic lung carcinoma (CMS-HCC)
+1216379,198.6,Metastatic adenocarcinoma of ovary (CMS-HCC)
+1224450,162.9,Stage IV adenocarcinoma of lung (CMS-HCC)
+1224451,162.9,"Adenocarcinoma of lung, stage 4 (CMS-HCC)"
+1224514,174.9,Stage IV carcinoma of breast (CMS-HCC)
+1226582,198.81,Metastatic malignant neoplasm to breast (CMS-HCC)
+1226836,162.9,"Squamous cell carcinoma of lung, stage IV (CMS-HCC)"
+1227228,174.9,"Stage 4 carcinoma of breast, ER+ (CMS-HCC)"
+1227350,198.89,Metastatic squamous cell carcinoma to tongue (CMS-HCC)
+1227708,189.0,Metastatic renal cell carcinoma (CMS-HCC)
+1227818,197.6,Metastasis to retroperitoneum (CMS-HCC)
+1228260,198.81,Malignant neoplasm metastatic to breast (CMS-HCC)
+1228305,198.89,Metastatic cancer to pelvis (CMS-HCC)
+1228584,198.5,Malignant neoplasm metastatic to bone (CMS-HCC)
+1229131,171.9,Perivascular epitheliod tumor with metastases (CMS-HCC)
+1229808,198.3,Malignant neoplasm metastatic to brain (CMS-HCC)
+1230300,197.7,Malignant neoplasm metastatic to liver (CMS-HCC)
+1231223,197.6,Malignant neoplasm metastatic to peritoneum (CMS-HCC)
+1231247,209.79,Metastatic neuroendocrine tumor to abdominal wall (CMS-HCC)
+1232703,198.1,Metastatic urothelial carcinoma (CMS-HCC)
+1234124,198.5,"Cancer of bone or bone marrow, secondary"
+1234266,197.7,Liver secondary cancer
+1234341,198.4,Metastasis to meninges (cerebral) (spinal)
+1234427,197,Secondary malignant neoplasm of respiratory and digestive systems
+1234533,198.5,Metastatic adenocarcinoma to bone (CMS-HCC)
+1234534,198.5,Secondary adenocarcinoma of bone (CMS-HCC)
+1234806,153.9,Carcinoma of colon metastatic to lung (CMS-HCC)
+1234807,153.9,Colon carcinoma metastatic to lung (CMS-HCC)
+1234808,153.9,Colon cancer metastasized to lung (CMS-HCC)
+1234809,154.1,Adenocarcinoma of rectum metastatic to liver (CMS-HCC)
+1234810,154.1,Rectal adenocarcinoma metastatic to liver (CMS-HCC)
+1234811,154.1,Rectal cancer metastasized to liver (CMS-HCC)
+1235021,153.9,Colon carcinoma metastatic to liver (CMS-HCC)
+1235022,153.9,Carcinoma of colon metastatic to liver (CMS-HCC)
+1235023,153.9,Colon cancer metastasized to liver (CMS-HCC)
+1239149,197.0,Metastatic sarcoma to lung (CMS-HCC)
+1246456,185,Malignant neoplasm of prostate metastatic to bone (CMS-HCC)
+1247580,197.0,Lymphangitic lung metastasis (CMS-HCC)
+1249202,197.6,Omental metastasis (CMS-HCC)
+1249589,153.9,Metastatic colon cancer to liver (CMS-HCC)
+1251154,197.6,Primary peritoneal carcinomatosis (CMS-HCC)
+1251209,197.6,Malignant pseudomyxoma peritonei (CMS-HCC)
+1253459,185,Prostate cancer metastatic to multiple sites (CMS-HCC)
+1254871,153.9,Colon carcinoma metastatic to skin (CMS-HCC)
+1254875,153.9,Colon cancer metastasized to ovary (CMS-HCC)
+1254877,154.1,Rectal adenocarcinoma metastatic to intra-abdominal lymph node (CMS-HCC)
+1254878,154.1,Rectal cancer metastasized to intra-abdominal lymph node (CMS-HCC)
+1254976,153.9,Colon cancer metastasized to small intestine (CMS-HCC)
+1254980,153.9,Colon carcinoma metastatic to brain (CMS-HCC)
+1254982,153.9,Colon cancer metastasized to brain (CMS-HCC)
+1255155,153.9,Colon carcinoma metastatic to bone (CMS-HCC)
+1255157,153.9,Colon cancer metastasized to bone (CMS-HCC)
+1255162,154.1,Rectal cancer metastasized to bone (CMS-HCC)
+1255280,157.9,Pancreatic cancer metastasized to lung (CMS-HCC)
+1255335,153.9,Colon carcinoma metastatic to pelvis (CMS-HCC)
+1255336,153.9,Colon cancer metastasized to pelvis (CMS-HCC)
+1255425,154.1,Rectal adenocarcinoma metastatic to lung (CMS-HCC)
+1255426,154.1,Rectal cancer metastasized to lung (CMS-HCC)
+1256005,209.79,Neuroendocrine carcinoma metastatic to intra-abdominal lymph node (CMS-HCC)
+1256059,209.79,Neuroendocrine carcinoma metastatic to lung (CMS-HCC)
+1256101,209.70,Neuroendocrine carcinoma metastatic to multiple sites (CMS-HCC)
+1256193,198.89,Multiple secondary malignant neoplasms (CMS-HCC)
+1256196,209.79,Neuroendocrine carcinoma metastatic to brain (CMS-HCC)
+1256290,209.72,Neuroendocrine carcinoma metastatic to liver (CMS-HCC)
+1256493,209.79,Multiple metastatic carcinoid tumors (CMS-HCC)
+1256736,162.9,Adenocarcinoma of lung metastatic to liver (CMS-HCC)
+1256738,174.9,Adenocarcinoma of breast metastatic to liver (CMS-HCC)
+1256740,153.9,Adenocarcinoma of colon metastatic to liver (CMS-HCC)
+1259651,157.9,Carcinoma of pancreas metastatic to lung (CMS-HCC)
+1277436,198.5,Secondary malignant neoplasm of vertebral column (CMS-HCC)
+1277639,185,Metastasis from malignant tumor of prostate (CMS-HCC)
+1278673,197.5,Secondary malignant neoplasm of colon (CMS-HCC)
+1279143,198.89,Secondary malignant neoplasm of endocrine gland (CMS-HCC)
+1279914,198.4,Metastasis to nervous system and eye (CMS-HCC)
+1280755,197.0,Secondary malignant neoplasm of right middle lobe of lung (CMS-HCC)
+1280759,197.0,Secondary malignant neoplasm of left upper lobe of lung (CMS-HCC)
+1280763,196.9,Secondary lymphangitic carcinoma (CMS-HCC)
+1280831,198.89,Secondary malignant neoplasm of lower extremity (CMS-HCC)
+1280838,198.89,Secondary malignant neoplasm of soft tissues of pelvis (CMS-HCC)
+1280845,198.89,Metastasis to peripheral nerve (CMS-HCC)
+1283316,197.8,Metastasis to spleen of unknown origin (CMS-HCC)
+1283399,173.91,Metastatic basal cell carcinoma (CMS-HCC)
+1283423,197.8,Metastasis to pancreas of unknown origin (CMS-HCC)
+1283426,198.5,Metastasis to vertebral column of unknown origin (CMS-HCC)
+1283465,198.89,Metastasis to heart of unknown primary (CMS-HCC)
+1283471,172.9,Metastasis from malignant melanoma of skin (CMS-HCC)
+1283540,198.7,Metastasis to adrenal gland of unknown origin (CMS-HCC)
+1283646,198.3,Metastasis to brain of unknown origin (CMS-HCC)
+1283649,198.5,Metastasis to bone of unknown primary (CMS-HCC)
+1283683,197.0,Metastasis to lung of unknown origin (CMS-HCC)
+1283907,198.89,Metastasis to soft tissue of unknown origin (CMS-HCC)
+1284098,197.7,Metastasis to liver of unknown origin (CMS-HCC)
+1284580,162.9,"Non-small cell carcinoma of lung, stage 4 (CMS-HCC)"
+1284739,171.9,Primary malignant neoplasm of soft tissues with metastasis to other site (CMS-HCC)
+1285876,193,Primary malignant neoplasm of thyroid gland metastatic to bone (CMS-HCC)
+1286875,198.89,Metastasis of neoplasm to spinal canal (CMS-HCC)
+1287332,"197.0, 199.1",Secondary malignant neoplasm of lung
+1287333,,Secondary malignant neoplasm of mediastinum
+1287334,,Secondary malignant neoplasm of pleura
+1287338,,Secondary malignant neoplasm of retroperitoneum and peritoneum
+1287339,197.8,Secondary malignant neoplasm of other digestive organs and spleen
+1287348,,Secondary malignant neoplasm of adrenal gland
+1288643,197.7,Secondary malignant neoplasm of liver
+1296094,,Secondary malignant neoplasm of mediastinum
+1296095,,Secondary malignant neoplasm of pleura
+1296096,,Secondary malignant neoplasm of other respiratory organs
+1296097,,Secondary malignant neoplasm of large intestine and rectum
+1296098,,Secondary malignant neoplasm of retroperitoneum and peritoneum
+1296101,,Secondary malignant neoplasm of other urinary organs
+1296102,,Secondary malignant neoplasm of skin
+1296103,,Secondary malignant neoplasm of other parts of nervous system
+1296104,198.5,Secondary malignant neoplasm of bone and bone marrow
+1296107,,Secondary malignant neoplasm of breast
+1296108,,Secondary malignant neoplasm of genital organs
+1298581,,Secondary malignant neoplasm of brain
+1298964,,Malignant pleural effusion
+1299444,,Secondary malignant neoplasm of bladder
+1348193,,Secondary malignant neoplasm of bone
+1349777,,Secondary malignant neoplasm of cerebral meninges
+1350555,,Secondary malignant neoplasm of left lung
+1350556,,Secondary malignant neoplasm of right lung

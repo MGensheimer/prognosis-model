@@ -1,13 +1,11 @@
-## Prognostic model sample code with simulated patient data
+## Prognostic model for patients with metastatic cancer
 
-Author: Michael Gensheimer
+Michael F. Gensheimer  
+Stanford University  
 mgens@stanford.edu
 
-Tested with Python version 3.5.2 and R version 3.4.3
+### Folders
 
-[Link to journal article in J. Natl. Cancer Inst.](https://doi.org/10.1093/jnci/djy178)
+[jnci\_paper\_2019: Code for 2019 JNCI paper on version 1 of prognostic model](jnci_paper_2019)
 
-## Steps
-1. Download and extract IMDB sentiment analysis dataset from http://ai.stanford.edu/~amaas/data/sentiment/
-2. Run parse_data.py with Python
-3. Run prognosis_model.r with R
+[radiation\_oncology\_survey\_2020: Code for study testing computer predictions vs. physicians](radiation_oncology_survey_2020)

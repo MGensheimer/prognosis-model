@@ -1,0 +1,17 @@
+{
+    "breaks":[0,30,91,182,365,548,730,913,1095,1278,1470,1643,1825],
+    "data_sources":{
+        "demographics":{
+            "process":true
+        },
+        "dx_proc_medi":{
+            "process":true
+        },
+        "labs_vitals":{
+            "process":true
+        },
+        "notes":{
+            "process":true
+        }
+    }
+}
