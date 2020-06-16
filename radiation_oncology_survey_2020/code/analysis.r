@@ -13,8 +13,6 @@ library(survminer)
 library(lubridate)
 library(readxl)
 library(tidyr)
-library(survivalROC)
-library(boot)
 library(arrow)
 
 source('mfg_utils.r')
@@ -66,7 +64,7 @@ attr(model_results$eval_date,'tzone') <- 'UTC'
 model_results$eval_date <- as.Date(model_results$eval_date)
 model_results$mrn_int = as.integer(model_results$MRN_FULL)
 names(model_results)[names(model_results) == 'eval_date'] <- 'tx_date'
-model_results_for_join <- model_results[,c('mrn_int','tx_date','median_pred_surv','median_pred_surv_2wkshift','improve_surv_feats','worsen_surv_feats')]
+model_results_for_join <- model_results[,c('mrn_int','tx_date','median_pred_surv','improve_surv_feats','worsen_surv_feats')]
 data_w_model_results <- inner_join(data,model_results_for_join,by=c("mrn_int",'tx_date'))
 data_w_model_results$time_death <- as.numeric(data_w_model_results$death_date-data_w_model_results$tx_date)
 data_w_model_results$time_fu <- as.numeric(data_w_model_results$lfu_date-data_w_model_results$tx_date)
@@ -78,7 +76,6 @@ data_analyze <- data_w_model_results[!is.na(data_w_model_results$prognosis_fac),
 cuts <- 365*c(-1, 1/4,1/2,3/4,1,1.5,2,999999)
 data_analyze$prognosis_ml <- cut(data_analyze$median_pred_surv, cuts, include = TRUE,labels=FALSE)
 data_analyze$pred_surv_bin <- as.factor(data_analyze$prognosis_ml)
-data_analyze$pred_surv_2wkshift_bin <- as.factor(cut(data_analyze$median_pred_surv_2wkshift, cuts, include = TRUE,labels=FALSE))
 
 #####
 #data summary
@@ -114,10 +111,73 @@ for (i in seq(nrow(sites_frame))) {
 data_analyze$combined <- cut( (data_analyze$prognosis_fac+data_analyze$prognosis_ml)/2 , seq(8)-0.5, include = TRUE,labels=FALSE) #rounding down
 
 #####
-#C-index faculty vs model
+#AUC taking physician level clustering into account
+library(fastAUC)
+fu_time <- 365
+data_temp <- data_analyze[data_analyze$time_death_fu>=fu_time | data_analyze$dead,]
+data_temp$died_later <- data_temp$time_death_fu>fu_time
+
+#physicians vs computer
+auc_result <- auc(test_1=data_temp$prognosis_fac,
+                  test_2=data_temp$prognosis_ml,
+                  status=data_temp$died_later,
+                  cluster=data_temp$dr)
+auc_result$p_value
+#0.1149344392
+se<-auc_result$var[1,1]^0.5
+low <- auc_result$auc[1]-1.96*se; hi <- auc_result$auc[1]+1.96*se #assume normal dist due to large n
+print(cbind(auc_result$auc[1], low, hi)) #physician AUC
+#0.7199186992 0.6309126467 0.8089247517
+
+se<-auc_result$var[2,2]^0.5
+low <- auc_result$auc[2]-1.96*se; hi <- auc_result$auc[2]+1.96*se #assume normal dist due to large n
+print(cbind(auc_result$auc[2], low, hi)) #computer AUC
+#0.7704994193 0.728049291 0.8129495475
+
+#physicians vs combined (physician and computer averaged)
+auc_result <- auc(test_1=data_temp$prognosis_fac,
+                  test_2=data_temp$combined,
+                  status=data_temp$died_later,
+                  cluster=data_temp$dr)
+auc_result$p_value
+#0.0006246882811
+se<-auc_result$var[2,2]^0.5
+low <- auc_result$auc[2]-1.96*se; hi <- auc_result$auc[2]+1.96*se #assume normal dist due to large n
+print(cbind(auc_result$auc[2], low, hi)) #combined AUC
+#0.7891045849 0.733713725 0.8444954448
+
+#computer vs combined (physician and computer averaged)
+auc_result <- auc(test_1=data_temp$prognosis_ml,
+                  test_2=data_temp$combined,
+                  status=data_temp$died_later,
+                  cluster=data_temp$dr)
+auc_result$p_value
+#0.3391964479
+
+####
+#ROC plots
+library(pROC)
+svg(filename = paste(fig_dir,'roc_12mo.svg',sep=''), width = 4.5, height = 4.5)
+roc_fac <- plot.roc(data_temp$died_later, data_temp$prognosis_fac,
+                    main="12 month survival",
+                    percent=TRUE,
+                    col=cbPalette[1],xaxs="i",yaxs="i")
+roc_ml <- lines.roc(data_temp$died_later, data_temp$prognosis_ml, 
+                    percent=TRUE, 
+                    col=cbPalette[2])
+roc_combined <- lines.roc(data_temp$died_later, data_temp$combined, 
+                          percent=TRUE, 
+                          col=cbPalette[3])
+
+legend("bottomright", legend=c("Physicians", "Computer","Combined"),
+       col=cbPalette[1:3], lwd=2,cex=1)
+dev.off()
+
+
+#####
+#C-index faculty vs model (CIs too narrow since doesn't account for clustering within physicians)
 w<-rcorr.cens(as.numeric(data_analyze$prognosis_fac),Surv(data_analyze$time_death_fu, data_analyze$dead))
 w<-rcorr.cens(as.numeric(data_analyze$prognosis_ml),Surv(data_analyze$time_death_fu, data_analyze$dead))
-w<-rcorr.cens(as.numeric(data_analyze$pred_surv_2wkshift_bin),Surv(data_analyze$time_death_fu, data_analyze$dead))
 w<-rcorr.cens(as.numeric(data_analyze$combined),Surv(data_analyze$time_death_fu, data_analyze$dead))
 C <- w['C Index']
 se <- w['S.D.']/2
@@ -126,39 +186,7 @@ print(cbind(C, low, hi))
 #Results:                     C          low           hi
 #fac                   0.6711895009 0.6491436573 0.6932353445
 #model                 0.7028146768 0.6830854157 0.722543938
-#model w/ 2wk old data 0.6560264769 0.6349100975 0.6771428562
 #fac + model           0.7211983928 0.701738948 0.7406578376
-
-#C-index significantly different?
-temp<-rcorrp.cens(as.numeric(data_analyze$prognosis_fac),
-                  as.numeric(data_analyze$prognosis_ml),
-                  Surv(data_analyze$time_death_fu, data_analyze$dead),
-                  method=1)
-2*pnorm(-abs(temp[1]/temp[2])) #2 sided p value
-#2.459522645e-06
-
-temp<-rcorrp.cens(as.numeric(data_analyze$prognosis_ml),
-                  as.numeric(data_analyze$combined),
-                  Surv(data_analyze$time_death_fu, data_analyze$dead),
-                  method=1)
-2*pnorm(-abs(temp[1]/temp[2])) #2 sided p value
-
-
-#C-index faculty vs model, randomly pick 1 treatment per pt
-reps <- 1000
-pvalue_a <- c()
-for (i in seq(reps)) {
-  data_analyze_oneperpt <- data_analyze %>% group_by(mrn_int) %>% sample_n(1)
-  temp<-rcorrp.cens(as.numeric(data_analyze_oneperpt$prognosis_fac),
-                    as.numeric(data_analyze_oneperpt$prognosis_ml),
-                    Surv(data_analyze_oneperpt$time_death_fu, data_analyze_oneperpt$dead),
-                    method=1)
-  pvalue_a <- append(pvalue_a, 2*pnorm(-abs(temp[1]/temp[2]))) #2 sided p value
-}
-median(pvalue_a)
-#0.0004251060924
-mean(pvalue_a)
-#0.0006348942465
 
 #calibration plots Kaplan-Meier
 cuts <- c(0.5,2.5,4.5,6.5,7.5) #divides into 0-6, 6.1-12, 12.1-24, 24.1+
@@ -170,7 +198,7 @@ summary(data_analyze$temp_bin)
 mysurv <- npsurv(Surv(data_analyze$time_death_fu, data_analyze$dead) ~ data_analyze$temp_bin)
 svg(filename = paste(fig_dir,'dr_model_calib_km.svg',sep=''), width = 5, height = 4.5)
 par(yaxt="n")
-survplot(fit=mysurv,conf="none",xlim=c(0,365.25*2),time.inc=365.25/4,lty=1,label.curves = FALSE,col=cbPalette,lwd=2,
+survplot(fit=mysurv,conf="none",xlim=c(0,365*2),time.inc=365/4,lty=1,label.curves = FALSE,col=cbPalette,lwd=2,
          n.risk=F,
          adj.n.risk=.5,cex.n.risk=.8,
          xlab="Follow-up, months",
@@ -274,51 +302,6 @@ ggplot(data_temp2, aes(x=fx_f)) + geom_bar(width=0.65) +
   theme(panel.spacing = unit(1, "lines"),panel.grid.major.x = element_blank())+
   scale_y_continuous(expand = expand_scale(add = c(0,5)))+ggtitle('Fractions used for bone metastases')
 
-#####
-#ROC
-survauc <- function(data, indices, method, fu_time, auc_only=T) {
-  d <- data[indices,] # allows boot to select sample
-  surv.res <- with(d,
-                   survivalROC(Stime        = time_death_fu,
-                               status       = dead,
-                               marker       = -eval(parse(text=method)),
-                               predict.time = fu_time,
-                               method       = "KM"))
-  if(auc_only) {
-    return(surv.res$AUC)
-  }
-  else {
-    return(surv.res)
-  }
-}
-
-fu_time_m_a <- c(6, 12)
-method_a <- c('prognosis_fac','prognosis_ml')
-for (fu_time_m in fu_time_m_a) {
-  print(fu_time_m)
-  fu_time <- fu_time_m*365/12
-  ROCphys <- survauc(data=data_analyze, indices=seq(nrow(data_analyze)), method='prognosis_fac',fu_time=fu_time, auc_only=F)
-  ROCml <- survauc(data=data_analyze, indices=seq(nrow(data_analyze)), method='prognosis_ml',fu_time=fu_time, auc_only=F)
-  print(ROCphys$AUC)
-  print(ROCml$AUC)
-  svg(filename = paste(fig_dir,'roc_',fu_time_m,'mo.svg',sep=''), width = 5, height = 5)
-  with(ROCphys, plot(TP ~ FP,type="l",col=cbPalette[1],lwd=2, xaxs="i",yaxs="i",xlab='False positive rate',ylab='True positive rate'))
-  with(ROCml, lines(TP ~ FP,col=cbPalette[3],lwd=2))
-  lines(c(0,1),c(0,1),lty=2,col='#999999')
-  legend(0.4,0.35,c(
-    paste("Physicians: AUC ",format(ROCphys$AUC,digits=3),sep=""),
-    paste("Computer: AUC ",format(ROCml$AUC,digits=3),sep="")
-  ),lty=1,lwd=2,col=cbPalette[c(1,3)],cex=0.8)
-  title(paste(format(fu_time/30.44,digits=1)," month survival",sep=""))
-  dev.off()
-  #bootstrapped confidence intervals for time-dependent AUC
-  for (method in method_a) {
-    boot.res <- boot(data=data_analyze, statistic=survauc, R=10000, method=method, fu_time=fu_time)
-    temp <- boot.ci(boot.res)
-    print(paste(method,': bootstrapped 95% CI (percentile method)'))
-    print(temp$percent)
-  }
-}
 
 #####
 #per physician
@@ -579,7 +562,7 @@ dev.off()
 
 large_diff <- data_analyze[abs(data_analyze$prognosis_fac-data_analyze$prognosis_ml)>=5,]
 large_diff$diff <- abs(large_diff$prognosis_fac-large_diff$prognosis_ml)
-large_diff$surv_mo <- large_diff$time_death_fu/30
+large_diff$surv_mo <- large_diff$time_death_fu*12/365
 
 large_diff$tx_site1_text <- ''
 for (i in seq(nrow(sites_frame))) {
@@ -590,20 +573,3 @@ write.table(format(large_diff[order(large_diff$prognosis_fac,large_diff$prognosi
 
 comp_more_optimistic <- data_analyze[data_analyze$prognosis_ml-data_analyze$prognosis_fac>=5,]
 mysurv <- npsurv(Surv(comp_more_optimistic$time_death_fu, comp_more_optimistic$dead) ~ 1)
-
-######
-#plot computer prediction distribution
-summary(data_analyze$median_pred_surv < 3*365/12) #6%
-summary(data_analyze$median_pred_surv < 6*365/12) #28%
-summary(data_analyze$median_pred_surv < 12*365/12) #52%
-
-temp <- data_analyze
-temp$median_pred_surv[temp$median_pred_surv>1825] <- 1826
-temp$months <- floor(temp$median_pred_surv/30)+0.5
-
-ggplot(temp, aes(x=months)) + 
-  geom_histogram(binwidth=1,color="black", fill="white") +
-  scale_x_continuous(breaks=seq(0,61,3),limits=c(0,61),expand=c(0,0)) +
-  scale_y_continuous(expand=c(0,5)) +
-  theme_bw() +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
