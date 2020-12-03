@@ -13,6 +13,9 @@ library(survminer)
 library(lubridate)
 library(readxl)
 library(tidyr)
+library(survivalROC)
+library(boot)
+library(stringr)
 library(arrow)
 
 source('mfg_utils.r')
@@ -28,33 +31,33 @@ data1 <- subset(data1, select = -c(lfu_date, death_date)) #remove outdated follo
 data1$tx_date <- mdy(data1$tx_date)
 data1$birth_date <- mdy(data1$birth_date)
 data1$age <- as.numeric(data1$tx_date-data1$birth_date)/365
-data1$mrn_full <- as.integer(data1$mrn_full)
-names(data1)[names(data1) == 'mrn_full'] <- 'mrn_int'
+data1$patient_id <- as.integer(data1$patient_id)
+names(data1)[names(data1) == 'patient_id'] <- 'patient_id_int'
 data1$primsite_f <- factor(data1$primsite_coded, levels=seq(12), labels=c('CNS', 'Head and neck', 'Thorax', 'Breast', 'Gastrointestinal', 'Genitourinary', 'Gynecologic', 'Hematologic', 'Bone', 'Skin', 'Endocrine', 'Other/unknown'))
 data1$primsite_f[data1$primsite_coded %in% c(1, 11)] <- 'Other/unknown'
 
 data2=read_excel(paste(data_dir,'survey_outcomes_updated.xlsx',sep='')) #load updated follow-up info
-data3 <- data2[c('MRN','Alive','Date of death','Last Follow-up')]
-names(data3) <- c('mrn_int','alive','death_date','lfu_date')
-data3$mrn_int <- as.integer(data3$mrn_int)
+data3 <- data2[c('Patient ID','Alive','Date of death','Last Follow-up')]
+names(data3) <- c('patient_id_int','alive','death_date','lfu_date')
+data3$patient_id_int <- as.integer(data3$patient_id_int)
 data3$death_date <- ymd(data3$death_date)
 data3$lfu_date <- ymd(data3$lfu_date)
 data3 <- unique(data3)
-temp <- data3 %>% group_by(mrn_int) %>%  filter(n() > 1)
-data3 <- data3 %>% group_by(mrn_int) %>% filter(row_number()==1)
+temp <- data3 %>% group_by(patient_id_int) %>%  filter(n() > 1)
+data3 <- data3 %>% group_by(patient_id_int) %>% filter(row_number()==1)
 
 attending_grad_year=read.csv(paste(data_dir,'attending_grad_year.csv',sep=''),stringsAsFactors=FALSE)
 
 #data quality checks
-nrow(unique(data1[c('mrn_int','tx_date')]))
+nrow(unique(data1[c('patient_id_int','tx_date')]))
 
 #join tables to add updated follow-up info
-data <- inner_join(data1,data3,by="mrn_int")
+data <- inner_join(data1,data3,by="patient_id_int")
 data <- inner_join(data,attending_grad_year,by="dr")
 data$yr_after_grad <- 2016-data$yr_res_grad
 
 #more data quality checks
-length(unique(data$mrn_int))
+length(unique(data$patient_id_int))
 summary(data$alive & !is.na(data$death_date))
 
 #load computer model predictions
@@ -62,10 +65,10 @@ model_predsurv <- read_parquet(paste(data_dir,'model_predsurv.parquet',sep=''))
 model_results <- read_parquet(paste(data_dir,'model_results.parquet',sep=''))
 attr(model_results$eval_date,'tzone') <- 'UTC'
 model_results$eval_date <- as.Date(model_results$eval_date)
-model_results$mrn_int = as.integer(model_results$MRN_FULL)
+model_results$patient_id_int = as.integer(model_results$patient_id)
 names(model_results)[names(model_results) == 'eval_date'] <- 'tx_date'
-model_results_for_join <- model_results[,c('mrn_int','tx_date','median_pred_surv','improve_surv_feats','worsen_surv_feats')]
-data_w_model_results <- inner_join(data,model_results_for_join,by=c("mrn_int",'tx_date'))
+model_results_for_join <- model_results[,c('patient_id_int','tx_date','median_pred_surv','improve_surv_feats','worsen_surv_feats')]
+data_w_model_results <- inner_join(data,model_results_for_join,by=c("patient_id_int",'tx_date'))
 data_w_model_results$time_death <- as.numeric(data_w_model_results$death_date-data_w_model_results$tx_date)
 data_w_model_results$time_fu <- as.numeric(data_w_model_results$lfu_date-data_w_model_results$tx_date)
 data_w_model_results$time_death_fu <- apply(data_w_model_results[,c('time_death','time_fu')],1,max,na.rm=TRUE)
@@ -76,11 +79,14 @@ data_analyze <- data_w_model_results[!is.na(data_w_model_results$prognosis_fac),
 cuts <- 365*c(-1, 1/4,1/2,3/4,1,1.5,2,999999)
 data_analyze$prognosis_ml <- cut(data_analyze$median_pred_surv, cuts, include = TRUE,labels=FALSE)
 data_analyze$pred_surv_bin <- as.factor(data_analyze$prognosis_ml)
+data_analyze$ecog <- 5-cut(data_analyze$kps,c(0, 35, 55, 75, 95,105),include=TRUE,labels=FALSE) #https://www.ncbi.nlm.nih.gov/pubmed/20674334
+data_analyze$ecog_factor <- as.factor(cut(as.numeric(data_analyze$ecog), c(-1, 0.5, 1.5, 2.5, 999), include = TRUE,labels=c('0','1','2','3-4')))
+data_analyze$ecog_neg <- -data_analyze$ecog
 
 #####
 #data summary
-length(unique(data_analyze$mrn_int))
-courses_per_pt <- data_analyze %>% group_by(mrn_int) %>% tally(sort=T)
+length(unique(data_analyze$patient_id_int))
+courses_per_pt <- data_analyze %>% group_by(patient_id_int) %>% tally(sort=T)
 summary(courses_per_pt$n)
 summary(data_analyze$time_death_fu)
 #Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
@@ -154,6 +160,37 @@ auc_result <- auc(test_1=data_temp$prognosis_ml,
 auc_result$p_value
 #0.3391964479
 
+#physicians vs Jang ECOG
+auc_result <- fastAUC::auc(test_1=data_temp$prognosis_fac,
+                  test_2=-data_temp$ecog,
+                  status=data_temp$died_later,
+                  cluster=data_temp$dr)
+auc_result$p_value
+
+#computer vs Jang ECOG
+auc_result <- fastAUC::auc(test_1=data_temp$prognosis_ml,
+                  test_2=data_temp$ecog_neg,
+                  status=data_temp$died_later,
+                  cluster=data_temp$dr)
+auc_result$p_value
+
+#all comparisons
+preds <- list(data_temp$prognosis_fac, data_temp$prognosis_ml, data_temp$combined, data_temp$ecog_neg)
+preds_names <- c('fac','ml','combined','ecog')
+for (i in seq(length(preds))) {
+  for (j in seq(i)) {
+    if (i!=j) {
+      auc_result <- auc(test_1=preds[[i]],
+                        test_2=preds[[j]],
+                        status=data_temp$died_later,
+                        cluster=data_temp$dr)
+      cat(preds_names[i], preds_names[j])
+      print(auc_result$p_value)
+    }
+  }
+}
+
+
 ####
 #ROC plots
 library(pROC)
@@ -179,14 +216,12 @@ dev.off()
 w<-rcorr.cens(as.numeric(data_analyze$prognosis_fac),Surv(data_analyze$time_death_fu, data_analyze$dead))
 w<-rcorr.cens(as.numeric(data_analyze$prognosis_ml),Surv(data_analyze$time_death_fu, data_analyze$dead))
 w<-rcorr.cens(as.numeric(data_analyze$combined),Surv(data_analyze$time_death_fu, data_analyze$dead))
+w<-rcorr.cens(as.numeric(-data_analyze$ecog),Surv(data_analyze$time_death_fu, data_analyze$dead))
+
 C <- w['C Index']
 se <- w['S.D.']/2
 low <- C-1.96*se; hi <- C+1.96*se
 print(cbind(C, low, hi))
-#Results:                     C          low           hi
-#fac                   0.6711895009 0.6491436573 0.6932353445
-#model                 0.7028146768 0.6830854157 0.722543938
-#fac + model           0.7211983928 0.701738948 0.7406578376
 
 #calibration plots Kaplan-Meier
 cuts <- c(0.5,2.5,4.5,6.5,7.5) #divides into 0-6, 6.1-12, 12.1-24, 24.1+
@@ -528,20 +563,6 @@ prop.table(table(fac_short$prognosis_ml>pred_cutoff,fac_short$complex,dnn=c('ml>
 prop.table(table(data_analyze$prognosis_fac>pred_cutoff,data_analyze$complex,dnn=c('fac>cutoff','complex')),1)
 
 #####
-#add procedure name to feature_names.csv
-feature_coefs=read.csv(paste(data_dir,'feature_names.csv',sep=''),stringsAsFactors=FALSE)
-proc_codes_names=read_excel(paste(data_dir,'proc_codes_names.xlsx',sep=''))
-proc_codes_names <- proc_codes_names %>% group_by(CPT_CODE) %>% filter(row_number()==1)
-proc_codes_names$feature_name <- paste('proc_',proc_codes_names$CPT_CODE,sep='')
-names(proc_codes_names)[names(proc_codes_names) == 'PROC_NAME'] <- 'description'
-proc_codes_names <- proc_codes_names[,c('feature_name','description')]
-feature_coefs <- left_join(feature_coefs,proc_codes_names,by="feature_name")
-is_diag = which(substr(feature_coefs$feature_name,1,4)=='diag')
-temp <- explain_code(substr(feature_coefs[is_diag,'feature_name'],6,999),condense=F)
-feature_coefs$description[is_diag] <- temp
-write.table(feature_coefs,file=paste(data_dir,'feature_names_w_descriptions.csv',sep=''),sep=',',row.names=FALSE)
-
-#####
 #patients w/ biggest discrepancy between attending and model
 
 cuts <- c(0.5,2.5,4.5,6.5,7.5) #divides into 0-6 months, 6.1-12, 12.1-24, 24.1+
@@ -573,3 +594,189 @@ write.table(format(large_diff[order(large_diff$prognosis_fac,large_diff$prognosi
 
 comp_more_optimistic <- data_analyze[data_analyze$prognosis_ml-data_analyze$prognosis_fac>=5,]
 mysurv <- npsurv(Surv(comp_more_optimistic$time_death_fu, comp_more_optimistic$dead) ~ 1)
+
+#####
+#for pts who died, distribution of errors
+data_temp <- data_analyze[data_analyze$dead==1,]
+cuts <- 365*c(-1, 1/4,1/2,3/4,1,1.5,2,999999)
+data_temp$actual_bin <- cut(data_temp$time_death_fu, cuts, include = TRUE,labels=FALSE)
+data_temp$phys_actual_diff <- data_temp$prognosis_fac - data_temp$actual_bin
+data_temp$ml_actual_diff <- data_temp$prognosis_ml - data_temp$actual_bin
+
+data_temp_long <- data_temp %>% pivot_longer(c('phys_actual_diff','ml_actual_diff'), names_to='Method', values_to='actual_diff')
+data_temp_long$Method <- factor(data_temp_long$Method, levels=c('phys_actual_diff','ml_actual_diff'), labels=c('Physician','Computer'))
+
+svg(filename = paste(fig_dir,'pred_actual_bin_diff.svg',sep=''), width = 5, height = 3)
+ggplot(data_temp_long, aes(x=actual_diff, fill=Method)) +
+  geom_bar(width=0.65,stat="count", position=position_dodge2(preserve='single')) +
+  scale_fill_manual(values=cbPalette[c(1,3)]) +
+  labs(y="No. patients",x="Predicted minus actual survival bin")+theme_bw()+
+  scale_x_continuous(breaks=seq(-6,6))+
+  theme(panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))+
+  scale_y_continuous(expand = expand_scale(add = c(0,10)))
+dev.off()
+
+#####
+#most common features for good and poor-prognosis pts
+improve_surv_feats<-strsplit(data_analyze$improve_surv_feats,' \\+| -')
+worsen_surv_feats<-strsplit(data_analyze$worsen_surv_feats,' \\+| -')
+summary(data_analyze$prognosis_ml>5)
+summary(data_analyze$prognosis_ml<3)
+improve_surv_in_good_prog <- unlist(improve_surv_feats[data_analyze$prognosis_ml>5])
+worsen_surv_in_poor_prog <- unlist(worsen_surv_feats[data_analyze$prognosis_ml<3])
+View(summary(as.factor(improve_surv_in_good_prog)))
+View(summary(as.factor(worsen_surv_in_poor_prog)))
+
+###
+#subgroup analysis by sex and race ethnicity: C-index and calibration plots
+summary(as.factor(data_analyze$RACE))
+summary(as.factor(data_analyze$ETHNICITY))
+summary(as.factor(data_analyze$male))
+
+subset_indices <- list(data_analyze$male==1, data_analyze$male==0, data_analyze$RACE=='ASIAN', data_analyze$RACE=='WHITE', data_analyze$ETHNICITY=='HISPANIC/LATINO', data_analyze$ETHNICITY=='NON-HISPANIC/NON-LATINO')
+subset_names <- c('male','female','Asian','white','Hispanic','not Hispanic')
+method_names <- c('prognosis_fac','prognosis_ml','combined')
+for (i in seq(length(subset_names))) {
+  data_subset <- data_analyze[subset_indices[[i]],]
+  print(subset_names[i])
+  for (j in seq(length(method_names))) {
+    print(method_names[j])
+    w<-rcorr.cens(as.numeric(data_subset[,method_names[j]]),Surv(data_subset$time_death_fu, data_subset$dead))
+    C <- w['C Index']
+    se <- w['S.D.']/2
+    low <- C-1.96*se; hi <- C+1.96*se
+    print(cbind(C, low, hi))
+  }
+  cuts <- c(0.5,2.5,4.5,6.5,7.5) #divides into 0-6, 6.1-12, 12.1-24, 24.1+
+  data_subset$temp_bin <- as.factor(cut(as.numeric(data_subset$pred_surv_bin), cuts, include = TRUE,labels=FALSE))
+  mysurv <- npsurv(Surv(data_subset$time_death_fu, data_subset$dead) ~ data_subset$temp_bin)
+  print(mysurv)
+  svg(filename = paste(fig_dir,'model_calib_subset_',subset_names[i],'.svg',sep=''), width = 5, height = 4.5)
+  par(yaxt="n")
+  survplot(fit=mysurv,conf="none",xlim=c(0,365.25*2),time.inc=365.25/4,lty=1,label.curves = FALSE,col=cbPalette,lwd=2,
+           n.risk=F,
+           adj.n.risk=.5,cex.n.risk=.8,
+           xlab="Follow-up, months",
+           ylab="Survival")
+  par(yaxt="s") ; axis(2, at=seq(0, 1, 0.25))
+  title("0-6, 6.1-12, 12.1-24, 24.1+")
+  dev.off()
+}
+
+#AUC sex/race/ethnicity subsets
+library(fastAUC)
+fu_time <- 365
+data_temp <- data_analyze[data_analyze$time_death_fu>=fu_time | data_analyze$dead,]
+data_temp$died_later <- data_temp$time_death_fu>fu_time
+method_names <- c('prognosis_fac','prognosis_ml','combined', 'ecog_neg')
+subset_indices <- list(data_temp$male==0, data_temp$male==1, data_temp$RACE=='ASIAN', data_temp$RACE=='WHITE', data_temp$ETHNICITY=='HISPANIC/LATINO', data_temp$ETHNICITY=='NON-HISPANIC/NON-LATINO')
+subset_names <- c('female','male','Asian','white','Hispanic','not Hispanic')
+
+primsites <- sort(as.character(unique(data_analyze$primsite_f)))
+primsite_indices <- list()
+for (i in seq(length(primsites))) {
+  primsite_indices[[i]] <- data_temp$primsite_f==primsites[i]
+}
+
+subset_indices <- c(subset_indices, primsite_indices)
+subset_names <- c(subset_names, primsites)
+
+subset_results <- matrix(nrow=length(subset_names),ncol=length(method_names)+2)
+for (i in seq(length(subset_names))) {
+  data_subset <- data_temp[subset_indices[[i]],]
+  #print(subset_names[i])
+  #print(nrow(data_subset))
+  subset_results[i,1] <- subset_names[i]
+  subset_results[i,2] <- nrow(data_subset)
+  for (j in seq(length(method_names))) {
+    #print(method_names[j])
+    auc_result <- auc(test_1=data_subset[,method_names[j]],
+                    status=data_subset$died_later,
+                    cluster=data_subset$dr)
+    se<-auc_result$var^0.5
+    low <- auc_result$auc-1.96*se; hi <- auc_result$auc+1.96*se #assume normal dist due to large n
+    #print(cbind(auc_result$auc, low, hi))
+    subset_results[i,j+2] <- paste(format(auc_result$auc, digits=2), ' (',format(low, digits=2), '-', format(hi, digits=2),')',sep='')
+  }
+}
+subset_results <- as.data.frame(subset_results)
+colnames(subset_results) <- c('subset','n',method_names)
+write.table(subset_results,file=paste(data_dir,'subset_results.csv',sep=''),sep=',',row.names=FALSE, quote=F)
+
+
+
+#####
+#calibrate Jang ECOG performance status model to pts getting palliative RT
+pt_info_pall_rt=read.csv(paste(data_dir,'pt_info.csv',sep=''),stringsAsFactors=FALSE)
+pall_rt=read.csv(paste(data_dir,'pall_rt_outcomes_w_site.csv',sep=''),stringsAsFactors=FALSE)
+pall_rt$tx_date <- mdy(pall_rt$tx_date)
+pall_rt <- pall_rt[pall_rt$tx_date >= as.Date("2008-02-28"),]
+pall_rt$patient_id <- as.integer(pall_rt$patient_id)
+pall_rt <- pall_rt %>% distinct(patient_id, tx_date, .keep_all = TRUE)
+pall_rt$duplicate <- 0
+for (i in seq(nrow(pall_rt))) { # remove duplicate courses (within 14 days)
+  tempTable2 <- pall_rt[-i,]
+  tempTable <- tempTable2[tempTable2$patient_id==pall_rt[i,'patient_id'],]
+  tempDiff <- as.numeric(tempTable$tx_date - pall_rt[i,'tx_date'])
+  tempDiff=tempDiff[tempDiff > -14 & tempDiff < 1]
+  if (length(tempDiff)) {
+    pall_rt[i,'duplicate'] <- 1
+  }
+}
+pall_rt <- pall_rt[pall_rt$duplicate==0,]
+pt_info_pall_rt$death_date <- ymd(substr(pt_info_pall_rt$death_date,1,10))
+pt_info_pall_rt$lfu_date <- ymd(substr(pt_info_pall_rt$lfu_date,1,10))
+pt_info_pall_rt <- pt_info_pall_rt[,c('patient_id','death_date','lfu_date')]
+pall_rt <- inner_join(pall_rt,pt_info_pall_rt,by="patient_id")
+
+pall_rt$time_death <- as.numeric(pall_rt$death_date-pall_rt$tx_date)
+pall_rt$time_fu <- as.numeric(pall_rt$lfu_date-pall_rt$tx_date)
+pall_rt$time_death_fu <- apply(pall_rt[,c('time_death','time_fu')],1,max,na.rm=TRUE)
+pall_rt$dead <- !is.na(pall_rt$death_date)
+pall_rt <- pall_rt[pall_rt$time_death_fu>0,]
+pall_rt <- pall_rt[pall_rt$ecog != 999,]
+pall_rt$ecog_factor <- as.factor(cut(as.numeric(pall_rt$ecog), c(-1, 0.5, 1.5, 2.5, 999), include = TRUE,labels=c('0','1','2','3-4')))
+summary(as.factor(pall_rt$ecog))
+mysurv <- npsurv(Surv(pall_rt$time_death_fu, pall_rt$dead) ~ 1, data = pall_rt)
+mysurv <- npsurv(Surv(pall_rt$time_death_fu, pall_rt$dead) ~ ecog_factor, data = pall_rt)
+survplot(mysurv)
+mysurv
+#983 pts
+#n events median 0.95LCL 0.95UCL
+#ecog_factor=0    30     20    745     259    1179
+#ecog_factor=1   457    393    294     249     345
+#ecog_factor=2   402    368    151     135     187
+#ecog_factor=3-4  94     87     79      60      96
+
+c(745,294,151,79)*12/365 #median surv in months
+#24.493150685  9.665753425  4.964383562  2.597260274
+
+#calibration plot for Jang ECOG model
+summary(as.factor(data_analyze$ecog))
+#0   1   2   3   4
+#67 498 244  64   6 
+mysurv <- npsurv(Surv(data_analyze$time_death_fu, data_analyze$dead) ~ data_analyze$ecog_factor)
+svg(filename = paste(fig_dir,'calib_jang_ecog.svg',sep=''), width = 5, height = 4.5)
+par(yaxt="n")
+survplot(fit=mysurv,conf="none",xlim=c(0,365.25*2),time.inc=365.25/4,lty=1,label.curves = FALSE,col=cbPalette,lwd=2,
+         n.risk=F,
+         adj.n.risk=.5,cex.n.risk=.8,
+         xlab="Follow-up, months",
+         ylab="Survival")
+par(yaxt="s") ; axis(2, at=seq(0, 1, 0.25))
+legend(200,0.8,c("24.5 (ECOG 0)", "9.7 (ECOG 1)", "5.0 (ECOG 2)", "2.6 (ECOG 3-4)"),lwd=2,col=cbPalette[c(1,2,3,4)],cex=1,title='Predicted survival (months)')
+dev.off()
+
+#####
+#add procedure name to feature_names.csv
+feature_coefs=read.csv(paste(data_dir,'feature_names.csv',sep=''),stringsAsFactors=FALSE)
+proc_codes_names=read_excel(paste(data_dir,'proc_codes_names.xlsx',sep=''))
+proc_codes_names <- proc_codes_names %>% group_by(CPT_CODE) %>% filter(row_number()==1)
+proc_codes_names$feature_name <- paste('proc_',proc_codes_names$CPT_CODE,sep='')
+names(proc_codes_names)[names(proc_codes_names) == 'PROC_NAME'] <- 'description'
+proc_codes_names <- proc_codes_names[,c('feature_name','description')]
+feature_coefs <- left_join(feature_coefs,proc_codes_names,by="feature_name")
+is_diag = which(substr(feature_coefs$feature_name,1,4)=='diag')
+temp <- explain_code(substr(feature_coefs[is_diag,'feature_name'],6,999),condense=F)
+feature_coefs$description[is_diag] <- temp
+write.table(feature_coefs,file=paste(data_dir,'feature_names_w_descriptions.csv',sep=''),sep=',',row.names=FALSE)
