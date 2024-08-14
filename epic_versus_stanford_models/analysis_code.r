@@ -208,3 +208,46 @@ temp <- sort(joined_hassurv_timeperiod$pred_12mo_risk)
 cutpoint <- temp[1283-484] #pick cut point so that there are the same # of Stanford model high-risk patients as Epic model high-risk patients
 stanford_highrisk <- joined_hassurv_timeperiod[joined_hassurv_timeperiod$pred_12mo_risk>cutpoint,]
 summary(stanford_highrisk$dead)
+
+#Stanford model: most common features influencing survival
+split_string_on_plus_or_minus <- function(input_string) {
+  substrings <- c()
+  current_substring <- ""
+  for (i in seq_along(strsplit(input_string, "")[[1]])) {
+    char <- substr(input_string, i, i)
+    if (char == "+" || char == "-") {
+      if (current_substring != "") {
+        substrings <- c(substrings, current_substring)
+      }
+      current_substring <- char
+    } else {
+      current_substring <- paste0(current_substring, char)
+    }
+  }
+  if (current_substring != "") {
+    substrings <- c(substrings, current_substring)
+  }
+  return(substrings)
+}
+
+result <- joined_hassurv %>%
+  mutate(splits = lapply(improve_surv_feats, split_string_on_plus_or_minus)) %>%
+  unnest(splits)
+
+common_improve_surv <- result$splits
+common_improve_surv <- common_improve_surv[common_improve_surv != " "]
+common_improve_surv <- trimws(common_improve_surv)
+common_improve_surv_frame <- data.frame(common_improve_surv)
+colnames(common_improve_surv_frame) <- 'term'
+most_common_improve_terms <- common_improve_surv_frame %>% count(term, sort=T)
+
+result <- joined_hassurv %>%
+  mutate(splits = lapply(worsen_surv_feats, split_string_on_plus_or_minus)) %>%
+  unnest(splits)
+
+common_worsen_surv <- result$splits
+common_worsen_surv <- common_worsen_surv[common_worsen_surv != " "]
+common_worsen_surv <- trimws(common_worsen_surv)
+common_worsen_surv_frame <- data.frame(common_worsen_surv)
+colnames(common_worsen_surv_frame) <- 'term'
+most_common_worsen_terms <- common_worsen_surv_frame %>% count(term, sort=T)
