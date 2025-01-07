@@ -110,6 +110,11 @@ joined_hassurv$ethnicity_recoded[joined_hassurv$ethnicity=='Hispanic/Latino'] <-
 joined_hassurv$ethnicity_recoded[joined_hassurv$ethnicity=='Non-Hispanic/Non-Latino'] <- 'Not Hispanic'
 joined_hassurv$pred_12mo_risk <- 1-joined_hassurv$pred_12mo_surv
 
+#export anonymized data
+joined_anon <- joined_hassurv %>% select(DepartmentNM, pred_12mo_risk, END_OF_LIFE_CARE_INDEX_SCORE, time_death_fu, dead)
+write.table(joined_anon,file=paste(fig_dir,'data_anon.csv',sep=''),sep=',',row.names=F)
+
+
 #patient characteristics table
 mysummary <- joined_hassurv %>% tbl_summary(include=c('DepartmentNM','sex','race_recoded','ethnicity_recoded','age','pred_12mo_risk','END_OF_LIFE_CARE_INDEX_SCORE','dead','time_death_fu'),
                                             label=c(DepartmentNM ~ 'department',pred_12mo_risk ~ 'Stanford model-predicted 1-year mortality risk',time_death_fu~'Follow-up time (days)'))
@@ -195,7 +200,7 @@ for (timeperiod in timeperiods) {
   dev.off()
 }
 
-#Positive predictive value of Epic-specified high risk group
+#Positive predictive value of Epic-specified high risk group for 1-year mortality
 summary(joined_hassurv_timeperiod$dead_timeperiod)
 summary(joined_hassurv_timeperiod$END_OF_LIFE_CARE_INDEX_SCORE>=45)
 summary(joined_hassurv_timeperiod$dead_timeperiod[joined_hassurv_timeperiod$END_OF_LIFE_CARE_INDEX_SCORE>=45])
@@ -208,6 +213,35 @@ temp <- sort(joined_hassurv_timeperiod$pred_12mo_risk)
 cutpoint <- temp[1283-484] #pick cut point so that there are the same # of Stanford model high-risk patients as Epic model high-risk patients
 stanford_highrisk <- joined_hassurv_timeperiod[joined_hassurv_timeperiod$pred_12mo_risk>cutpoint,]
 summary(stanford_highrisk$dead)
+
+#Sensitivity
+dead_patients <- joined_hassurv_timeperiod[joined_hassurv_timeperiod$dead_timeperiod==TRUE,]
+alive_patients <- joined_hassurv_timeperiod[joined_hassurv_timeperiod$dead_timeperiod==FALSE,]
+
+sensitivity_eolci <- sum(dead_patients$END_OF_LIFE_CARE_INDEX_SCORE>=45)/nrow(dead_patients)
+sensitivity_stanford <- sum(dead_patients$pred_12mo_risk>0.31)/nrow(dead_patients)
+
+#Specificity
+specificity_eolci <- sum(alive_patients$END_OF_LIFE_CARE_INDEX_SCORE<45)/nrow(alive_patients)
+specificity_stanford <- sum(alive_patients$pred_12mo_risk<=0.31)/nrow(alive_patients)
+
+#Likelihood ratios
+#positive LR
+positive_lr_eolci <- sensitivity_eolci / (1-specificity_eolci)
+positive_lr_stanford <- sensitivity_stanford / (1-specificity_stanford)
+negative_lr_eolci <- (1-sensitivity_eolci) / specificity_eolci
+negative_lr_stanford <- (1-sensitivity_stanford) / specificity_stanford
+diagnostic_odds_ratio_eolci <- positive_lr_eolci / negative_lr_eolci
+diagnostic_odds_ratio_stanford <- positive_lr_stanford / negative_lr_stanford
+
+#Gini index
+ppv_eolci <- sum(joined_hassurv_timeperiod$dead_timeperiod[joined_hassurv_timeperiod$END_OF_LIFE_CARE_INDEX_SCORE>=45])/sum(joined_hassurv_timeperiod$END_OF_LIFE_CARE_INDEX_SCORE>=45)
+npv_eolci <- sum(1-joined_hassurv_timeperiod$dead_timeperiod[joined_hassurv_timeperiod$END_OF_LIFE_CARE_INDEX_SCORE<45])/sum(joined_hassurv_timeperiod$END_OF_LIFE_CARE_INDEX_SCORE<45)
+ppv_stanford <- sum(joined_hassurv_timeperiod$dead_timeperiod[joined_hassurv_timeperiod$pred_12mo_risk>0.31])/sum(joined_hassurv_timeperiod$pred_12mo_risk>0.31)
+npv_stanford <- sum(1-joined_hassurv_timeperiod$dead_timeperiod[joined_hassurv_timeperiod$pred_12mo_risk<=0.31])/sum(joined_hassurv_timeperiod$pred_12mo_risk<=0.31)
+proportion_dead <- sum(joined_hassurv_timeperiod$dead_timeperiod) / nrow(joined_hassurv_timeperiod)
+gini_eolci <- (484/1283) * ((1283-484)/1283) * (ppv_eolci+npv_eolci-1) / (proportion_dead * (1-proportion_dead))
+gini_stanford <- (484/1283) * ((1283-484)/1283) * (ppv_stanford+npv_stanford-1) / (proportion_dead * (1-proportion_dead))
 
 #Stanford model: most common features influencing survival
 split_string_on_plus_or_minus <- function(input_string) {
@@ -251,3 +285,28 @@ common_worsen_surv <- trimws(common_worsen_surv)
 common_worsen_surv_frame <- data.frame(common_worsen_surv)
 colnames(common_worsen_surv_frame) <- 'term'
 most_common_worsen_terms <- common_worsen_surv_frame %>% count(term, sort=T)
+
+
+# sensitivity analysis: analyze all pts, including those lost to follow-up prior to 1yr
+
+joined_hassurv$dead_1yr <- joined_hassurv$dead & joined_hassurv$time_death_fu<=365
+
+#AUC
+print('Stanford model')
+print(auc(joined_hassurv$dead_1yr, -joined_hassurv$pred_12mo_surv))
+print(ci.auc(joined_hassurv$dead_1yr, -joined_hassurv$pred_12mo_surv))
+print('Epic EOLCI')
+print(auc(joined_hassurv$dead_1yr, joined_hassurv$END_OF_LIFE_CARE_INDEX_SCORE))
+print(ci.auc(joined_hassurv$dead_1yr, joined_hassurv$END_OF_LIFE_CARE_INDEX_SCORE))
+
+#PPV
+joined_hassurv$stanford_high_risk <- joined_hassurv$pred_12mo_risk>0.31
+joined_hassurv$epic_high_risk <- joined_hassurv$END_OF_LIFE_CARE_INDEX_SCORE>=45
+summary(joined_hassurv$stanford_high_risk)
+sum(joined_hassurv$dead_1yr[joined_hassurv$stanford_high_risk])/sum(joined_hassurv$stanford_high_risk)
+summary(joined_hassurv$epic_high_risk)
+sum(joined_hassurv$dead_1yr[joined_hassurv$epic_high_risk])/sum(joined_hassurv$epic_high_risk)
+
+#sensitivity
+sum(joined_hassurv$dead_1yr[joined_hassurv$stanford_high_risk])/sum(joined_hassurv$dead_1yr)
+sum(joined_hassurv$dead_1yr[joined_hassurv$epic_high_risk])/sum(joined_hassurv$dead_1yr)
